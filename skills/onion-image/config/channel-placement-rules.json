@@ -3,11 +3,10 @@
   "source": "飞书 Wiki《厂商&学习机素材规范汇总》(rev 320)，整理为 /research/渠道版位规则汇总.md",
   "updated_at": "2026-05-18",
   "policy": {
-    "phase_1_enabled": "direct_or_near_single_image_only",
+    "phase_1_enabled": "direct_or_near_image_slots",
     "disabled_rules": [
       "expand",
-      "composite",
-      "image_count_gt_1"
+      "composite"
     ],
     "render_size_rule": "Use render_size for gpt-image-2. Resize/crop/compress to target_size before delivery/upload."
   },
@@ -69,8 +68,8 @@
       "format": "JPG/PNG",
       "logo_policy": "optional",
       "cta_policy": "forbidden",
-      "enabled": false,
-      "disabled_reason": "一期暂不支持双图/三图/组图版位",
+      "enabled": true,
+      "disabled_reason": "",
       "notes": "单张",
       "source": "research/渠道版位规则汇总.md rev320 2026-05-18"
     },
@@ -97,8 +96,8 @@
       "format": "JPG/PNG",
       "logo_policy": "optional",
       "cta_policy": "forbidden",
-      "enabled": false,
-      "disabled_reason": "一期暂不支持双图/三图/组图版位",
+      "enabled": true,
+      "disabled_reason": "",
       "notes": "单张",
       "source": "research/渠道版位规则汇总.md rev320 2026-05-18"
     },
@@ -209,8 +208,8 @@
       "format": "<150KB",
       "logo_policy": "optional",
       "cta_policy": "forbidden",
-      "enabled": false,
-      "disabled_reason": "一期暂不支持双图/三图/组图版位",
+      "enabled": true,
+      "disabled_reason": "",
       "notes": "",
       "source": "research/渠道版位规则汇总.md rev320 2026-05-18"
     },
@@ -237,8 +236,8 @@
       "format": "<100KB",
       "logo_policy": "optional",
       "cta_policy": "forbidden",
-      "enabled": false,
-      "disabled_reason": "一期暂不支持双图/三图/组图版位",
+      "enabled": true,
+      "disabled_reason": "",
       "notes": "接近 3:2",
       "source": "research/渠道版位规则汇总.md rev320 2026-05-18"
     },
@@ -377,8 +376,8 @@
       "format": "JPG/JPEG/PNG",
       "logo_policy": "optional",
       "cta_policy": "forbidden",
-      "enabled": false,
-      "disabled_reason": "一期暂不支持双图/三图/组图版位",
+      "enabled": true,
+      "disabled_reason": "",
       "notes": "",
       "source": "research/渠道版位规则汇总.md rev320 2026-05-18"
     },
@@ -433,8 +432,8 @@
       "format": "JPG/JPEG/PNG",
       "logo_policy": "optional",
       "cta_policy": "forbidden",
-      "enabled": false,
-      "disabled_reason": "一期暂不支持双图/三图/组图版位",
+      "enabled": true,
+      "disabled_reason": "",
       "notes": "",
       "source": "research/渠道版位规则汇总.md rev320 2026-05-18"
     },
@@ -601,8 +600,8 @@
       "format": "JPG/JPEG/PNG",
       "logo_policy": "optional",
       "cta_policy": "forbidden",
-      "enabled": false,
-      "disabled_reason": "一期暂不支持双图/三图/组图版位",
+      "enabled": true,
+      "disabled_reason": "",
       "notes": "",
       "source": "research/渠道版位规则汇总.md rev320 2026-05-18"
     },
@@ -825,8 +824,8 @@
       "format": "JPG/JPEG/PNG",
       "logo_policy": "optional",
       "cta_policy": "forbidden",
-      "enabled": false,
-      "disabled_reason": "一期暂不支持双图/三图/组图版位",
+      "enabled": true,
+      "disabled_reason": "",
       "notes": "",
       "source": "research/渠道版位规则汇总.md rev320 2026-05-18"
     },
@@ -853,8 +852,8 @@
       "format": "JPG/JPEG/PNG",
       "logo_policy": "optional",
       "cta_policy": "forbidden",
-      "enabled": false,
-      "disabled_reason": "一期暂不支持双图/三图/组图版位",
+      "enabled": true,
+      "disabled_reason": "",
       "notes": "",
       "source": "research/渠道版位规则汇总.md rev320 2026-05-18"
     },
@@ -937,8 +936,8 @@
       "format": "<500KB",
       "logo_policy": "optional",
       "cta_policy": "forbidden",
-      "enabled": false,
-      "disabled_reason": "一期暂不支持双图/三图/组图版位",
+      "enabled": true,
+      "disabled_reason": "",
       "notes": "",
       "source": "research/渠道版位规则汇总.md rev320 2026-05-18"
     },
@@ -1049,8 +1048,8 @@
       "format": "<500KB",
       "logo_policy": "optional",
       "cta_policy": "forbidden",
-      "enabled": false,
-      "disabled_reason": "一期暂不支持双图/三图/组图版位",
+      "enabled": true,
+      "disabled_reason": "",
       "notes": "",
       "source": "research/渠道版位规则汇总.md rev320 2026-05-18"
     },
@@ -1133,8 +1132,8 @@
       "format": "同上",
       "logo_policy": "optional",
       "cta_policy": "forbidden",
-      "enabled": false,
-      "disabled_reason": "一期暂不支持双图/三图/组图版位",
+      "enabled": true,
+      "disabled_reason": "",
       "notes": "",
       "source": "research/渠道版位规则汇总.md rev320 2026-05-18"
     },
@@ -1161,8 +1160,8 @@
       "format": "同上",
       "logo_policy": "optional",
       "cta_policy": "forbidden",
-      "enabled": false,
-      "disabled_reason": "一期暂不支持双图/三图/组图版位",
+      "enabled": true,
+      "disabled_reason": "",
       "notes": "3 张不同内容",
       "source": "research/渠道版位规则汇总.md rev320 2026-05-18"
     },
@@ -1441,8 +1440,8 @@
       "format": "",
       "logo_policy": "optional",
       "cta_policy": "forbidden",
-      "enabled": false,
-      "disabled_reason": "一期暂不支持双图/三图/组图版位",
+      "enabled": true,
+      "disabled_reason": "",
       "notes": "2 张；背景不要用站内 AI 生成",
       "source": "research/渠道版位规则汇总.md rev320 2026-05-18"
     },
@@ -2841,8 +2840,8 @@
       "format": "",
       "logo_policy": "required",
       "cta_policy": "optional",
-      "enabled": false,
-      "disabled_reason": "一期暂不支持双图/三图/组图版位",
+      "enabled": true,
+      "disabled_reason": "",
       "notes": "共 2 张",
       "source": "research/渠道版位规则汇总.md rev320 2026-05-18"
     },
@@ -2869,8 +2868,8 @@
       "format": "",
       "logo_policy": "required",
       "cta_policy": "optional",
-      "enabled": false,
-      "disabled_reason": "一期暂不支持双图/三图/组图版位",
+      "enabled": true,
+      "disabled_reason": "",
       "notes": "共 2 张；正好 3:1 边界",
       "source": "research/渠道版位规则汇总.md rev320 2026-05-18"
     }

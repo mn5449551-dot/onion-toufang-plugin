@@ -344,6 +344,37 @@ def normalize_channel_placement(slot: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def normalize_desired_image_form(context: dict[str, Any]) -> str:
+    for key in ("image_form", "imageForm", "图片形式", "form"):
+        value = str(context.get(key) or "").strip()
+        if not value:
+            continue
+        lowered = value.lower()
+        if value in {"单图", "双图", "三图"}:
+            return value
+        if lowered in {"single", "single_image", "one"} or "单" in value:
+            return "单图"
+        if lowered in {"double", "two", "two_images"} or "双" in value:
+            return "双图"
+        if lowered in {"triple", "three", "three_images"} or "三" in value:
+            return "三图"
+    return ""
+
+
+def apply_context_image_form(slots: list[dict[str, Any]], desired_form: str) -> list[dict[str, Any]]:
+    if not desired_form:
+        return slots
+    constrained = []
+    for slot in slots:
+        item = dict(slot)
+        slot_form = item.get("imageForm") or item.get("image_form")
+        if slot_form and slot_form != desired_form and item.get("enabled", True):
+            item["enabled"] = False
+            item["disabled_reason"] = f"本次图片形式为{desired_form}，该版位是{slot_form}"
+        constrained.append(item)
+    return constrained
+
+
 def slots_by_id(path: Path | None = None) -> dict[str, dict[str, Any]]:
     return {str(slot["id"]): slot for slot in load_platform_slots(path) if slot.get("id")}
 
@@ -410,7 +441,8 @@ def build_config_payload(
     platform_rules: Path | None = None,
 ) -> dict[str, Any]:
     context = context or {}
-    slots = load_platform_slots(platform_rules)
+    desired_form = normalize_desired_image_form(context)
+    slots = apply_context_image_form(load_platform_slots(platform_rules), desired_form)
     categories = []
     for slot in slots:
         category = slot.get("category") or slot.get("channel")
@@ -420,6 +452,7 @@ def build_config_payload(
         "request_id": request_id,
         "context": context,
         "slots": slots,
+        "desiredImageForm": desired_form,
         "ipOptions": load_ip_options(),
         "fontOptions": load_font_options(),
         "logoOptions": load_logo_options(),

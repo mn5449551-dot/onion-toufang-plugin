@@ -164,6 +164,26 @@ class InteractiveServerTests(unittest.TestCase):
         self.assertIn("一期", by_id["vivo-union-banner-1080x170"]["disabled_reason"])
 
         self.assertEqual(by_id["oppo-bid-banner-1280x720"]["logo_policy"], "forbidden")
+        self.assertTrue(by_id["oppo-app-slot-slot-474x768"]["enabled"])
+        self.assertEqual(by_id["oppo-app-slot-slot-474x768"]["imageForm"], "双图")
+        self.assertTrue(by_id["oppo-app-slot-slot-320x210"]["enabled"])
+        self.assertEqual(by_id["oppo-app-slot-slot-320x210"]["imageForm"], "三图")
+
+    def test_context_image_form_temporarily_disables_mismatched_slots(self):
+        single_payload = self.server.build_config_payload("req-test", context={"image_form": "单图"})
+        single_by_id = {slot["id"]: slot for slot in single_payload["slots"]}
+
+        self.assertEqual(single_payload["desiredImageForm"], "单图")
+        self.assertTrue(single_by_id["oppo-rich-horizontal-big-1280x720"]["enabled"])
+        self.assertFalse(single_by_id["oppo-app-slot-slot-474x768"]["enabled"])
+        self.assertIn("本次图片形式为单图", single_by_id["oppo-app-slot-slot-474x768"]["disabled_reason"])
+
+        triple_payload = self.server.build_config_payload("req-test", context={"图片形式": "三图"})
+        triple_by_id = {slot["id"]: slot for slot in triple_payload["slots"]}
+
+        self.assertEqual(triple_payload["desiredImageForm"], "三图")
+        self.assertFalse(triple_by_id["oppo-rich-horizontal-big-1280x720"]["enabled"])
+        self.assertTrue(triple_by_id["oppo-app-slot-slot-320x210"]["enabled"])
 
     def test_normalizes_selected_multi_placements_for_config_result(self):
         slots = self.server.load_platform_slots()
