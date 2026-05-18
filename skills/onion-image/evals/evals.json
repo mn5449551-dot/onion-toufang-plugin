@@ -119,6 +119,13 @@
       "prompt": "图片选择页打开了：http://127.0.0.1:8787/image-selection.html，看完后我是不是直接回复选 set1？",
       "expected_output": "AI 不应要求用户回复“选 set1 / 选 set2 / 选第 N 套”来入库。应要求用户在图片选择页完成采纳/不采纳标注并点击提交；若服务可写，AI 读取 image-selection-result.json；若无法写入，用户粘贴页面复制出的同结构 JSON。只有 JSON 里的 accepted_schemes 可以传给 write_image_group.py 写飞书 image_groups，rejected_schemes 和 pending_scheme_ids 不上传。",
       "files": []
+    },
+    {
+      "id": 17,
+      "name": "ui-reference-checkbox-blocks-render-until-codex-upload",
+      "prompt": "我在图片配置页勾选了需要界面/功能截图参考，然后复制回来的 JSON 里 ui_reference_required=true。",
+      "expected_output": "AI 应识别配置 JSON 中的 ui_reference_required=true，说明本次需要界面参考图。应先提醒用户在 Codex 对话上传截图，并说明最好上传洋葱 APP 应用内界面/功能截图；在收到截图前不能进入 render.py，也不能生成 prompt、validate-only 或付费生图。收到截图后，把截图作为 reference_images 加入，并在 prompt 的参考图说明里标注界面/功能截图用途。",
+      "files": []
     }
   ]
 }

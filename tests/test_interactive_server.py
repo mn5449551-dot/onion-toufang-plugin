@@ -91,6 +91,9 @@ class InteractiveServerTests(unittest.TestCase):
         self.assertIn("thumb-card", html)
         self.assertIn("fontEnabled", html)
         self.assertIn("ui_reference_note", html)
+        self.assertIn("uiReferenceRequired", html)
+        self.assertIn("需要界面/功能截图参考", html)
+        self.assertIn("保存后请回到 Codex 上传截图", html)
         self.assertIn("generation_mode", html)
         self.assertNotIn("__DATA_JSON__", html)
         self.assertNotIn("{{", html)
@@ -143,10 +146,28 @@ class InteractiveServerTests(unittest.TestCase):
             selection = json.loads((output_dir / "image-selection-result.json").read_text(encoding="utf-8"))
             image_sets = json.loads((output_dir / "image-sets.json").read_text(encoding="utf-8"))
             self.assertEqual(config["sets"], 2)
+            self.assertFalse(config["ui_reference_required"])
             self.assertEqual(selection["schemes"], [])
             self.assertEqual(image_sets["sets"][0]["set_id"], "set1")
             self.assertEqual(live_sets_payload["sets"][0]["thumb"], ["set1_img1.png"])
             self.assertEqual(logo_status, 200)
+
+    def test_ui_reference_required_is_persisted_as_blocking_codex_upload(self):
+        slots = self.server.load_platform_slots()
+        by_id = {slot["id"]: slot for slot in slots}
+        result = self.server.normalize_config_result(
+            {
+                "request_id": "req-test",
+                "ui_reference_required": True,
+                "ui_reference_upload_status": "awaiting_codex_upload",
+            },
+            by_id,
+        )
+
+        self.assertTrue(result["ui_reference_required"])
+        self.assertEqual(result["ui_reference_upload_status"], "awaiting_codex_upload")
+        self.assertEqual(result["ui_reference"], "codex_upload_required")
+        self.assertIn("上传截图", result["ui_reference_next_action"])
 
     def test_default_rules_include_latest_directness_and_disabled_slots(self):
         slots = self.server.load_platform_slots()
