@@ -1,0 +1,60 @@
+{
+  "name": "onion critical behavior evals",
+  "purpose": "真实会话压测清单。每个 case 都应该在 Claude / Codex 中人工跑一次；失败后才改对应 skill 或脚本。",
+  "evals": [
+    {
+      "id": "direction-id-cannot-start-image",
+      "prompt": "D-021 这个方向直接帮我出应用商店三图。",
+      "expected_behavior": "先由 onion-router 判断 D-XXX 是方向锚点，转 onion-copy 生成或确认应用商店三图文案；拿到 C-XXX 或明确文案后才允许进入 onion-image。",
+      "must_not": ["不能打开图片配置页", "不能调用 render.py", "不能直接用方向字段做图中文字"]
+    },
+    {
+      "id": "ambiguous-second-choice",
+      "prompt": "我选择第二条吧。",
+      "expected_behavior": "如果上下文不足，先问第二条指方向、文案还是图片方案；如果上下文明确，则只确认对应对象，不擅自进入下游生产。",
+      "must_not": ["不能默认第二条是文案", "不能默认进入出图", "不能写入未确认对象"]
+    },
+    {
+      "id": "direction-choice-then-image-needs-copy",
+      "prompt": "我选择第二个方向，接下来帮我出图。",
+      "expected_behavior": "先把被选方向按 onion-direction 规则入库，再转 onion-copy 生成或确认文案；不能从方向直接进入 onion-image。",
+      "must_not": ["不能跳过文案", "不能启动 /image-config", "不能直接生图"]
+    },
+    {
+      "id": "multi-direction-copy-scope",
+      "prompt": "这两个方向我都要，帮我出文案。",
+      "expected_behavior": "确认是两个方向都各出一批文案，还是只基于其中一个方向出；如果用户已明确每个都出，再进入 onion-copy。",
+      "must_not": ["不能默认只用第一个方向", "不能把两个方向混成一条文案", "不能缺渠道/图片形式时默认信息流单图"]
+    },
+    {
+      "id": "image-must-open-config",
+      "prompt": "短句1：拍一下，先看答案。短句2：洋葱逐步讲解，哪步不懂问哪步。帮我出一个图片。",
+      "expected_behavior": "文案锚点明确后进入 onion-image，但付费生图前必须先启动图片配置页，让用户确认版位、套数、Logo、IP、CTA 和参考图策略。",
+      "must_not": ["不能直接调用聊天内置 imagegen", "不能直接调用 render.py", "不能默认信息流竖版"]
+    },
+    {
+      "id": "oral-set-selection-cannot-write-base",
+      "prompt": "图片选择页我看了，选 set1 入库吧。",
+      "expected_behavior": "说明口头选择 set 不能写 Base，要求用户在选择页完成采纳/不采纳标注并提交，或粘贴同结构 JSON；没有 accepted_schemes 不能写 Base。",
+      "must_not": ["不能写 Base", "不能上传附件", "不能把 set1 当作 accepted_schemes"]
+    },
+    {
+      "id": "uploaded-app-screenshot-stays-new-image",
+      "prompt": "用 C-104 出图，我上传的这张是 APP 拍题结果页，手机屏幕参考这个。",
+      "expected_behavior": "上传图是 APP 截图参考素材，仍走 onion-image；配置或 prompt 中标记 screen_ui_reference_required / reference_images，不转迭代。",
+      "must_not": ["不能转 onion-image-iterate", "不能把截图当旧广告图锚点", "不能无截图编造 APP 界面"]
+    },
+    {
+      "id": "uploaded-old-ad-routes-iterate",
+      "prompt": "基于我上传的这张旧广告图，把文案换成拍完题马上看步骤，角色换小锤。",
+      "expected_behavior": "上传图是旧广告图锚点，转 onion-image-iterate，确认迭代力度和改动轴，并保留血缘说明。",
+      "must_not": ["不能进入 onion-image 探索配置页", "不能当成普通风格参考图", "不能丢掉旧图关系"]
+    },
+    {
+      "id": "missing-api-key-routes-help",
+      "prompt": "帮我用 C-104 出 2 套图。",
+      "expected_behavior": "进入 onion-image 后，在付费调用前检查 LAOZHANG_API_KEY；缺失或占位时转 onion-help/环境配置提示，不进入 render 阶段。",
+      "must_not": ["不能等到付费渲染才报错", "不能假装 key 可用", "不能调用 render.py 正式生图"]
+    }
+  ]
+}
