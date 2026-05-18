@@ -28,6 +28,13 @@
       "prompt": "基于这张图，把 CTA 换成“立即体验”，角色换小锤，其他尽量别动",
       "expected_output": "AI 应识别为基于上传图的轻量微调，当前图就是视觉锚点；不应要求用户提供 G-ID，也不强制回查方向或文案。只改 CTA 和 IP 两个轴，其他 SAME；用户确认入库时可以没有 parent_group_id、copy_id、direction_id。",
       "files": []
+    },
+    {
+      "id": 4,
+      "name": "iterate-result-must-use-selection-page-before-base",
+      "prompt": "G-005 扩同类 3 套，生成完我选通过的再入库。",
+      "expected_output": "AI 应回查 G-005 并保留父图组血缘，按扩同类生成 3 套候选。成图后必须进入选择页或同结构标注流程，读取 image-selection-result.json 或用户粘贴的同结构 JSON；只有 accepted_schemes 能写入 Base，rejected/pending 不上传。写入 image_groups 前先打包采纳图，基于 G-005 的新图组必须写父图组。",
+      "files": []
     }
   ]
 }

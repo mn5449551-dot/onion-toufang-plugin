@@ -126,6 +126,13 @@
       "prompt": "我在图片配置页勾选了需要界面/功能截图参考，然后复制回来的 JSON 里 ui_reference_required=true。",
       "expected_output": "AI 应识别配置 JSON 中的 screen_ui_reference_required=true / ui_reference_required=true，说明本次画面需要展示可识别的洋葱 APP/学习界面屏幕内容。应先提醒用户在 Codex 对话上传截图，并说明最好上传洋葱 APP 应用内界面/功能截图；在收到截图前不能进入 render.py，也不能生成 prompt、validate-only 或付费生图。如果用户不上传截图，只能改成弱化/模糊屏幕内容。收到截图后，把截图作为 reference_images 加入，并在 prompt 的参考图说明里标注界面/功能截图用途。",
       "files": []
+    },
+    {
+      "id": 18,
+      "name": "uploaded-reference-image-stays-in-image-skill",
+      "prompt": "用 C-104 出应用商店单图，我上传的这张图只是风格参考，颜色和构图参考一下。",
+      "expected_output": "AI 应识别上传图是参考素材，不是旧广告图锚点，因此仍走 onion-image。应先启动 /image-config 配置页确认版位、套数、Logo、IP、CTA 等配置，把上传图作为风格参考加入 reference_images；不应转 onion-image-iterate，也不应要求 G-ID。",
+      "files": []
     }
   ]
 }

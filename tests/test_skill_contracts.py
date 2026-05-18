@@ -88,21 +88,35 @@ class SkillContractTests(unittest.TestCase):
 
     def test_direction_selection_and_stage_contracts_are_explicit(self):
         text = (PLUGIN_ROOT / "skills" / "onion-direction" / "SKILL.md").read_text(encoding="utf-8")
+        evals = json.loads((PLUGIN_ROOT / "skills" / "onion-direction" / "evals" / "evals.json").read_text(encoding="utf-8"))
 
         self.assertIn("候选方向展示时必须显式显示 `适配阶段`", text)
         self.assertIn("选择第 N 条 / 方向一 / 就用这个", text)
         self.assertIn("先只把被选中的方向写入 Base", text)
         self.assertIn("入库后必须问下一步", text)
         self.assertIn("一次选择多个方向", text)
+        self.assertIn("默认创建新版", text)
+        self.assertIn("不覆盖原记录", text)
+        self.assertIn("明确说废弃原记录", text)
+        update_eval = next(item for item in evals["evals"] if item["name"] == "direction-id-edit-creates-new-version")
+        self.assertIn("创建一条新版方向", update_eval["expected_output"])
+        self.assertIn("不覆盖 D-007 原记录", update_eval["expected_output"])
 
     def test_copy_missing_channel_and_form_must_ask(self):
         text = (PLUGIN_ROOT / "skills" / "onion-copy" / "SKILL.md").read_text(encoding="utf-8")
+        evals = json.loads((PLUGIN_ROOT / "skills" / "onion-copy" / "evals" / "evals.json").read_text(encoding="utf-8"))
 
         self.assertIn("缺任一项就问，不默认信息流或单图", text)
         self.assertIn("不能因为上文示例或模型偏好默认成信息流", text)
         self.assertIn("先只把被选中的文案写入 Base", text)
         self.assertIn("不要立刻写入", text)
         self.assertIn("入库、基于它出图，还是继续改文案", text)
+        self.assertIn("默认创建新版", text)
+        self.assertIn("不覆盖原文案", text)
+        self.assertIn("明确说废弃原文案", text)
+        update_eval = next(item for item in evals["evals"] if item["name"] == "copy-id-edit-creates-new-version")
+        self.assertIn("创建一条新版文案", update_eval["expected_output"])
+        self.assertIn("不覆盖 C-012 原记录", update_eval["expected_output"])
 
     def test_copy_quality_guardrails_include_real_bad_phrases(self):
         fields = (PLUGIN_ROOT / "skills" / "onion-copy" / "references" / "字段定义-文案.md").read_text(encoding="utf-8")
@@ -190,7 +204,15 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("用户上传旧图", iterate)
         self.assertIn("换文案、换角色、扩同类", iterate)
         self.assertIn("如果要新增或替换可识别的洋葱 APP/学习界面屏幕内容", iterate)
+        self.assertIn("上传图如果只是 APP 截图、风格参考图或 IP 参考图", image)
+        self.assertIn("只有用户把上传图当作旧广告图锚点", image)
+        self.assertIn("成图后仍必须进入选择页", iterate)
+        self.assertIn("accepted_schemes", iterate)
+        self.assertIn("package_accepted_images.py", iterate)
+        self.assertIn("父图组", iterate)
         self.assertIn("方向 ID 不能直接跳到图", readme)
+        self.assertIn("方向：生成候选 → 用户确认 → 入库", readme)
+        self.assertIn("迭代图：确认旧图和改动轴 → 生图 → 选择页标注 → 采纳图入库", readme)
 
         direction_eval = next(item for item in image_evals["evals"] if item["id"] == 5)
         self.assertIn("不应启动 /image-config", direction_eval["expected_output"])
@@ -204,6 +226,14 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("ui_reference_required=true", ui_eval["expected_output"])
         self.assertIn("先提醒用户在 Codex 对话上传截图", ui_eval["expected_output"])
         self.assertIn("不能进入 render.py", ui_eval["expected_output"])
+        ref_eval = next(item for item in image_evals["evals"] if item["name"] == "uploaded-reference-image-stays-in-image-skill")
+        self.assertIn("参考素材", ref_eval["expected_output"])
+        self.assertIn("仍走 onion-image", ref_eval["expected_output"])
+        iterate_evals = json.loads((PLUGIN_ROOT / "skills" / "onion-image-iterate" / "evals" / "evals.json").read_text(encoding="utf-8"))
+        accepted_eval = next(item for item in iterate_evals["evals"] if item["name"] == "iterate-result-must-use-selection-page-before-base")
+        self.assertIn("选择页", accepted_eval["expected_output"])
+        self.assertIn("accepted_schemes", accepted_eval["expected_output"])
+        self.assertIn("父图组", accepted_eval["expected_output"])
 
         self.assertNotIn("image_count=1", channel_doc)
         self.assertNotIn("双图、三图、组图先置灰", channel_doc)
@@ -222,6 +252,19 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("不复制参考图里的示例文字", visual)
         self.assertIn("default font is an Onion font reference image", single)
         self.assertIn("Default font still uses an Onion font reference image", base)
+
+    def test_prompt_recipes_respect_screen_ui_gate(self):
+        single = (PLUGIN_ROOT / "shared" / "recipes" / "single-prompt.md").read_text(encoding="utf-8")
+        base = (PLUGIN_ROOT / "shared" / "recipes" / "base-prompt.md").read_text(encoding="utf-8")
+        branch = (PLUGIN_ROOT / "shared" / "recipes" / "branch-prompt.md").read_text(encoding="utf-8")
+
+        for text in (single, base, branch):
+            self.assertIn("有真实截图时", text)
+            self.assertIn("没有真实截图时", text)
+            self.assertIn("弱化/模糊屏幕", text)
+        self.assertIn("不要编造可识别的洋葱 APP 界面", single)
+        self.assertIn("screen_ui_reference_required=true", base)
+        self.assertIn("新增或替换屏幕内容", branch)
 
     def test_new_teacher_ip_assets_are_documented(self):
         visual = (PLUGIN_ROOT / "skills" / "onion-image" / "references" / "视觉元素规范.md").read_text(encoding="utf-8")

@@ -35,15 +35,25 @@ Image 1 must define:
 
 When reference images are used, describe their roles explicitly in the same order passed to `render.py`: Logo, IP, font, style, then user references. Use `参考图1/参考图2/...` labels and manifest paths so the model can bind each file to the right role. Default font still uses an Onion font reference image; do not ask the user to choose it.
 
+## Screen UI Gate
+
+有真实截图时：if image 1 establishes a readable Onion APP / learning UI on a device screen, set `screen_ui_reference_required=true`, include the uploaded screenshot in `reference_images`, and label it in the reference map.
+
+没有真实截图时：do not invent a readable Onion APP page. Use 弱化/模糊屏幕, generic unreadable cards, or a screen angled away from camera. The base image can show product action through scene, posture, light, and abstract proof cards, but not a specific fake UI.
+
 ## Positive Example
 
 This art-direction example is derived from the real "闭环通关"拍题精学 case in `功能-拍题精学.md`: find the stuck knowledge point, unlock the method, then practice similar questions.
 
 Input: 三图，短句「题目卡壳一拍精学 / 归纳重点解锁大招 / 智能推题举一反三」。
 
-Base prompt shape:
+Base prompt shape with a real screen screenshot:
 
-> 参考图说明：参考图1 是豆包角色参考图；参考图2 是洋葱专属字体参考图。横版 3:2 应用商店三图的第 1 张。明亮书桌场景，学生对着一道数学题卡住，手机里打开洋葱拍题精学，相机框正对题目，题目边缘被清晰识别框选。豆包站在屏幕旁像小老师一样指向“卡点识别中”的卡片，表情专注但不夸张。画面文字只写「题目卡壳一拍精学」，学习参考图2的字形气质、描边和标题排版节奏，但要和当前画面的配色、光线、构图融合，不要求完全一致，不复制参考图2中的示例文字。左上角洋葱学园 Logo，字体清晰，留出后续两张图延续“解锁大招、推同类题”的布局节奏。
+> 参考图说明：参考图1 是豆包角色参考图；参考图2 是洋葱专属字体参考图；参考图3 是用户上传的洋葱 APP 拍题界面截图。横版 3:2 应用商店三图的第 1 张。明亮书桌场景，学生对着一道数学题卡住，手机屏幕参考图3的真实拍题界面结构表现“拍题精学正在识别”，不复制截图里的无关文字。豆包站在屏幕旁像小老师一样指向手机，表情专注但不夸张。画面文字只写「题目卡壳一拍精学」，学习参考图2的字形气质、描边和标题排版节奏，但要和当前画面的配色、光线、构图融合，不要求完全一致，不复制参考图2中的示例文字。左上角洋葱学园 Logo，字体清晰，留出后续两张图延续“解锁大招、推同类题”的布局节奏。
+
+Base prompt shape without a screen screenshot:
+
+> 参考图说明：参考图1 是豆包角色参考图；参考图2 是洋葱专属字体参考图。横版 3:2 应用商店三图的第 1 张。明亮书桌场景，学生对着一道数学题卡住，手机屏幕只做弱化/模糊屏幕，不展示可识别 APP 界面；用光效和不可读的小卡片表达“拍题识别中”。豆包站在书桌旁像小老师一样指向题目，表情专注但不夸张。画面文字只写「题目卡壳一拍精学」，学习参考图2的字形气质、描边和标题排版节奏，但要和当前画面的配色、光线、构图融合，不要求完全一致，不复制参考图2中的示例文字。左上角洋葱学园 Logo，字体清晰，留出后续两张图延续“解锁大招、推同类题”的布局节奏。
 
 ## Hidden Failure Example
 
@@ -64,3 +74,4 @@ Use this checklist privately. Only summarize issues to the user if asked why.
 - Did you privately note what should change in branch images?
 - Is the base concrete enough for SAME locking?
 - Does the reference map in the prompt match the `reference_images` order?
+- Does any readable screen UI have a real screenshot and `screen_ui_reference_required=true`? If not, use 弱化/模糊屏幕.

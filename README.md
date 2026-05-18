@@ -73,16 +73,27 @@ pip install Pillow
 AI: [触发 onion-direction skill，反问/出方向卡/迭代/写飞书 Base]
 
 你: 用 D-007 出信息流文案 3 套
-AI: [触发 onion-copy skill，出 3 套文案 → 写 Base]
+AI: [触发 onion-copy skill，出 3 套文案 → 用户确认 → 写 Base 或进入出图]
 
 你: 用 C-104 出应用商店三图，2 套，豆包 IP
-AI: [触发 onion-image skill，配置卡 → 调老张 API 出图 → 浏览器选图 → 写 Base]
+AI: [触发 onion-image skill，本地配置页 → 调老张 API 出图 → 选择页标注 → 采纳图写 Base]
 
 你: G-005 跑得好，扩同类 2 套，换上官 IP
-AI: [触发 onion-image-iterate skill，按 parent_group_id 标血缘]
+AI: [触发 onion-image-iterate skill，确认旧图和改动轴 → 生图 → 选择页标注 → 按 parent_group_id 标血缘入库]
 ```
 
-如果当前运行时支持交互卡片，skill 会用卡片收集关键选择；不支持时会直接在对话里用一句话问清阻塞项。结果确认后再写入 Base。
+当前图片流程使用本地 HTML 页面收集配置和标注选择，不依赖 Codex/Claude 原生弹窗卡片。结果确认后再写入 Base，不会自动把所有候选写入。
+
+真实入库流程：
+
+```text
+方向：生成候选 → 用户确认 → 入库
+文案：生成候选 → 用户确认 → 入库或进入出图
+新图：配置页 → 生图 → 选择页标注 → 采纳图入库
+迭代图：确认旧图和改动轴 → 生图 → 选择页标注 → 采纳图入库
+```
+
+修改 D-XXX / C-XXX 默认创建新版，不覆盖历史记录；只有用户明确要求废弃旧记录时，才把旧记录状态改为废弃。
 
 ---
 

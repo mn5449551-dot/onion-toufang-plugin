@@ -33,6 +33,14 @@ Prompt should specify:
 
 Do not force these into a fixed paragraph order. Make the prompt read like a precise art direction brief.
 
+## Screen UI Gate
+
+有真实截图时：if the final image needs recognizable Onion APP / learning UI on a phone, tablet, computer, learning device, projection screen, or other electronic screen, include the uploaded screenshot in `reference_images`, label it in the reference map, and describe how to use it.
+
+没有真实截图时：do not invent a readable Onion APP page. Keep the device screen weak, blurred, angled away, overexposed, or represented by generic unreadable cards. The prompt must say `弱化/模糊屏幕` and should not describe specific screenshots, question frames, answer pages, or chat UI.
+
+不要编造可识别的洋葱 APP 界面. Concrete UI proof requires `screen_ui_reference_required=true` and a real uploaded screenshot.
+
 ## References
 
 Default order for full references:
@@ -41,6 +49,7 @@ Default order for full references:
 2. IP
 3. style reference
 4. font reference
+5. screen UI screenshot, only when provided
 
 Only include references that are actually selected. The default font is an Onion font reference image, but it is selected by the agent from `assets/font-references/` without asking the user.
 
@@ -56,9 +65,13 @@ This art-direction example is derived from the real "识别准确"拍题精学 c
 
 Input: 信息流单图，文案「拍了改、改了拍，识别不出来？ / 洋葱拍题精学，一拍识别，答案就是准」，IP=豆包，Logo=洋葱学园，9:16。
 
-Prompt shape:
+Prompt shape with a real screen screenshot:
 
-> 参考图说明：参考图1 是品牌 Logo；参考图2 是豆包角色参考图；参考图3 是洋葱专属字体参考图。竖版 9:16 信息流广告图。晚上书桌场景，初中生用手机反复拍同一道数学题，旁边浮现两个浅灰色失败提示卡片：识别失败、答案不确定；中间切到洋葱拍题精学的清晰结果页，题目框选准确，解析卡片带对勾和“AI + 名师校准”可信标识。豆包站在屏幕旁指向正确解析，学生表情从皱眉变成松一口气。画面上方大字「拍了改、改了拍，识别不出来？」，下方副标题「洋葱拍题精学，一拍识别，答案就是准」。文字学习参考图3的字形气质、描边和标题排版节奏，但要和当前画面的配色、光线、构图融合，不要求完全一致，不复制参考图3中的示例文字。左上角放洋葱学园 Logo，整体清晰、高对比、学习工具可信感强。
+> 参考图说明：参考图1 是品牌 Logo；参考图2 是豆包角色参考图；参考图3 是洋葱专属字体参考图；参考图4 是用户上传的洋葱 APP 拍题结果页截图。竖版 9:16 信息流广告图。晚上书桌场景，初中生用手机反复拍同一道数学题，旁边浮现两个浅灰色失败提示卡片：识别失败、答案不确定；手机屏幕参考图4的真实界面结构，表现洋葱拍题精学的清晰结果页和校准可信感，不复制截图里的无关细节。豆包站在屏幕旁指向正确解析，学生表情从皱眉变成松一口气。画面上方大字「拍了改、改了拍，识别不出来？」，下方副标题「洋葱拍题精学，一拍识别，答案就是准」。文字学习参考图3的字形气质、描边和标题排版节奏，但要和当前画面的配色、光线、构图融合，不要求完全一致，不复制参考图3中的示例文字。左上角放洋葱学园 Logo，整体清晰、高对比、学习工具可信感强。
+
+Prompt shape without a screen screenshot:
+
+> 参考图说明：参考图1 是品牌 Logo；参考图2 是豆包角色参考图；参考图3 是洋葱专属字体参考图。竖版 9:16 信息流广告图。晚上书桌场景，初中生拿着手机准备拍题，手机屏幕只做弱化/模糊屏幕，不展示可识别 APP 界面；旁边用抽象光效和不可读卡片表达“识别更准、解析更可信”的产品动作。豆包站在书桌旁指向题目，学生表情从皱眉变成松一口气。画面上方大字「拍了改、改了拍，识别不出来？」，下方副标题「洋葱拍题精学，一拍识别，答案就是准」。文字学习参考图3的字形气质、描边和标题排版节奏，但要和当前画面的配色、光线、构图融合，不要求完全一致，不复制参考图3中的示例文字。左上角放洋葱学园 Logo，整体清晰、高对比、学习工具可信感强。
 
 ## Hidden Failure Example
 
@@ -80,3 +93,4 @@ Use this checklist privately. Only summarize issues to the user if asked why.
 - Are Logo and CTA consistent with configuration?
 - Are reference paths selected in the same order as prompt references?
 - Does the prompt mention every labeled reference image?
+- If a readable product screen is described, is there a real screenshot reference and `screen_ui_reference_required=true`?
