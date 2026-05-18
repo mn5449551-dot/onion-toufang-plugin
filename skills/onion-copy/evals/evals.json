@@ -1,0 +1,61 @@
+{
+  "skill_name": "onion-copy",
+  "evals": [
+    {
+      "id": 0,
+      "name": "full-brief-direction-to-copy",
+      "prompt": "用 D-007 出信息流 3 套",
+      "expected_output": "AI 应识别为新建模式。方向 ID、渠道和数量已给足；如果能从 D-007 读取图片形式则继承，否则只问图片形式这个关键缺口。生成的信息流文案应覆盖至少 3 类切入角度，先展示给用户，不自动写 Base。",
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "missing-info-asks-only-blockers",
+      "prompt": "出文案",
+      "expected_output": "AI 应只询问阻塞输入：基于哪条方向或直接粘方向内容、渠道、图片形式。数量不问，按默认规则。问题要给具体选项，不开放式发散。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "imitate-copy-without-auto-store",
+      "prompt": "主标题：题都拍完了还要等？\n副标题：一拍即出分步解析，直接进入学习状态\n\n换说法再来 2 套",
+      "expected_output": "AI 应识别为扩文案模式。样本结构显示是单图主副标题，不反问；输出 2 套句式相近但角度不同的新文案。出完询问是否入库，默认偏向不存，不能自动写 Base。",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "copy-id-expansion-inherits-record",
+      "prompt": "C-012 这个标题再扩 5 套",
+      "expected_output": "AI 应识别为基于文案 ID 的扩文案模式；如果上下文没有 C-012 内容，先用 shared/scripts/lookup_record.py --id C-012 --follow-upstream 回查。继承原文案的渠道、图片形式和关联方向，除非用户明确要求覆盖。先展示 5 套，不自动写 Base。",
+      "files": []
+    },
+    {
+      "id": 4,
+      "name": "pasted-copy-expansion-does-not-require-upstream",
+      "prompt": "主标题：拍完题，解析马上跟上\n副标题：不用等加载，直接看步骤\n\n类似的再写 5 套，信息流单图",
+      "expected_output": "AI 应识别为轻量扩文案：用户已给当前文案、渠道和形式，不应追问方向 ID 或回查 Base。直接基于这段文案扩 5 套，保持结构但换角度；展示后再问是否入库，默认不自动写 Base，若入库也允许关联方向为空。",
+      "files": []
+    },
+    {
+      "id": 5,
+      "name": "selected-direction-copy-asks-channel-and-form",
+      "prompt": "我选择方向一吧。然后帮我出5条文案。",
+      "expected_output": "AI 应识别为选择续跑：方向一被用户确认采纳，若尚未入库应先只写入被选中的方向并取得 record_id。但出文案仍缺渠道和图片形式，必须先问信息流 / 应用商店 / 学习机，以及单图 / 双图 / 三图 / 全部；不能默认信息流单图后直接输出。",
+      "files": []
+    },
+    {
+      "id": 6,
+      "name": "selected-copy-alone-asks-next-action",
+      "prompt": "我选择4",
+      "expected_output": "AI 应识别为文案选择但下一步意图不完整。不能立刻写入 copies，也不能擅自进入出图；应问用户下一步是入库、基于第 4 条出图，还是继续改这条文案。",
+      "files": []
+    },
+    {
+      "id": 7,
+      "name": "copy-quality-fast-then-ask-is-natural",
+      "prompt": "基于 D-006 的快查再深学方向，出应用商店双图 5 套",
+      "expected_output": "AI 应先读取字段定义和常见误区。输出的双图文案必须是自然中文，避免“洋葱不懂还能继续问”这种主语错误；可使用类似“洋葱一拍，解析秒出 / 看不懂，再问洋葱 AI”的递进结构。每套都要体现先快查、再按需追问，不要只堆“拍题秒出解析 / AI 讲清楚”这类功能并列。",
+      "files": []
+    }
+  ]
+}

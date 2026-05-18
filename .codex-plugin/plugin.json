@@ -1,0 +1,25 @@
+{
+  "name": "onion-toufang",
+  "version": "1.1.0",
+  "description": "洋葱学园 APP 投放素材生成：方向、文案、图片、图组迭代和飞书 Base 入库。",
+  "author": {
+    "name": "洋葱学园投放团队"
+  },
+  "license": "Internal",
+  "keywords": ["飞书", "投放", "广告素材", "拍题精学", "GPT-Image", "Lark Base"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "洋葱投放",
+    "shortDescription": "生成洋葱学园投放方向、文案、图片并写入飞书 Base",
+    "longDescription": "面向洋葱学园投放团队的内部素材生产插件，支持从任意入口生成或迭代方向卡、投放文案和广告图，并通过共享脚本写入飞书多维表格。",
+    "developerName": "洋葱学园投放团队",
+    "category": "Productivity",
+    "capabilities": ["Write", "Interactive"],
+    "defaultPrompt": [
+      "拍题精学开学季出 3 条方向",
+      "用 D-007 出信息流文案 3 套",
+      "用 C-104 出应用商店三图 2 套"
+    ],
+    "brandColor": "#2F7D32"
+  }
+}

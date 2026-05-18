@@ -1,0 +1,117 @@
+{
+  "skill_name": "onion-image",
+  "evals": [
+    {
+      "id": 0,
+      "name": "full-brief-triple-no-extra-question",
+      "prompt": "C-101 出三图 3 套，Logo=洋葱学园，IP=豆包，OPPO 横版三图",
+      "expected_output": "AI 应读取 C-101 的文案和关联方向，继承渠道/图片形式；用户已给 Logo、IP、版位和套数，因此不应再弹完整配置卡。按三图链式生成：每套先出图1 base，再用图1作为参考生成图2/图3。结果先给用户选择，不自动写 Base。",
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "missing-info-asks-blockers",
+      "prompt": "出图",
+      "expected_output": "AI 应只询问阻塞输入：基于哪条文案或直接粘文案、必要的视觉配置缺口。不要直接调用付费生图；不要开放式发散。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "double-chain-is-real-chain",
+      "prompt": "C-102 出双图，Logo=洋葱学园，IP=上官，比例 3:2",
+      "expected_output": "AI 应按双图链式执行：图1用完整参考资产生成，图1 PNG 落盘后，图2仅用图1 PNG 作为参考做 delta。不能同时并发生成图1和图2，也不能给图2重复传 Logo/IP/风格资产。",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "large-batch-prompts-are-authored-in-chunks",
+      "prompt": "C-201 单图生成 50 套变体，Logo=洋葱学园，IP 可以随机，应用商店 16:9",
+      "expected_output": "AI 应识别为批量变体任务，读取 batch-prompting。不要一次粗糙吐 50 个最终 prompt，也不要默认调用外部 planner 直接生成最终 prompt。应按 5-10 套一批由 Agent 精写 prompt，维护 IP/场景/镜头/排版/视觉隐喻 ledger，保证任意两套至少 2 维不同。每批 prompt 先做质量和合规检查，再 validate-only 和并发渲染；结果先给选择页，不自动写 Base。",
+      "files": []
+    },
+    {
+      "id": 4,
+      "name": "existing-image-batch-expansion-uses-delta-batches",
+      "prompt": "基于这张已跑量图再扩 20 套，同文案不变，只换场景和版式",
+      "expected_output": "AI 应识别为已有图批量扩展。先确认或读取基准图，再按 5-10 套一批生成受控 delta prompt；保持品牌、主视觉调性和成功构图特征，只解锁用户指定的场景和版式。不要把 20 套写成无关新概念。渲染时不同套可并发，但每套内部仍遵守 base/branch 链式规则。",
+      "files": []
+    },
+    {
+      "id": 5,
+      "name": "direction-id-direct-image-does-not-skip-copy-layer",
+      "prompt": "D-021 直接出应用商店三图 2 套，Logo=洋葱学园，IP=豆包",
+      "expected_output": "AI 应先回查 D-021 方向；如果没有对应已确认文案，不应直接把方向字段当图片文字生图。应先补齐/确认三图文案，或转 onion-copy 生成可用文案，再进入 prompt validate 和付费生图。",
+      "files": []
+    },
+    {
+      "id": 6,
+      "name": "reference-labels-map-to-assets",
+      "prompt": "C-104 出信息流单图 2 套，Logo=洋葱学园，IP=豆包正常版，用字体参考 03",
+      "expected_output": "AI 应读取资产命名与参考图标注文档，使用 asset-manifest 的标准路径。每套 prompt 前应有参考图说明，例如参考图1=logo.onion.standard.001，参考图2=ip.doubao.junior.standard.001，参考图3=字体参考03；prompt 正文必须用这些标签说明 Logo、IP、字体各自怎么用。render.py input-json 的 reference_images 顺序和 prompt 标签一致，不使用旧路径或临时路径作为新标准。",
+      "files": []
+    },
+    {
+      "id": 7,
+      "name": "uploaded-image-copy-and-ip-change-does-not-require-upstream",
+      "prompt": "用我上传的这张旧图，文案换成“拍完题马上看步骤”，角色换成上官，再来 3 套信息流单图",
+      "expected_output": "AI 应把用户上传图作为视觉锚点，不要求 G-ID、C-ID 或方向 ID。只确认缺失的比例/版位等阻塞视觉配置；prompt 以旧图为参考做受控改造，换文案和上官 IP。用户确认入库时可以写 image_groups，但没有可信上游时不传 direction_id、copy_id 或 parent_group_id。",
+      "files": []
+    },
+    {
+      "id": 8,
+      "name": "selected-copy-image-asks-visual-config",
+      "prompt": "我选择第二条吧，然后根据第二条给我出图吧。",
+      "expected_output": "AI 应识别为选择续跑：第二条文案被用户确认采纳，若尚未入库应先只写入被选中的文案并取得 record_id。进入生图前必须确认缺失视觉配置：渠道/图片形式能否继承、版位、Logo 要不要、CTA、IP 用谁/随机/不用、是否加界面/功能卖点参考图或用户上传参考图。不能直接默认信息流竖版、默认 Logo、默认无 IP、默认无 CTA 后渲染。成图后必须进入 HTML 选择页，用户采纳后再压缩并写 image_groups。",
+      "files": []
+    },
+    {
+      "id": 9,
+      "name": "placement-question-shows-size-and-manifest-ip",
+      "prompt": "C-001 应用商店双图，帮我配一下图片参数",
+      "expected_output": "AI 应优先问版位而不是让用户盲选比例；版位选项要展示目标尺寸、gpt 出图尺寸、KB 上限和一期是否可用。IP 选项要从 asset-manifest 读取本地真实资产，列出随机 IP、标准角色和可用变体（如全身照、Q3），不能只硬编码 6 个标准名。",
+      "files": []
+    },
+    {
+      "id": 10,
+      "name": "selection-page-is-built-by-script",
+      "prompt": "C-001 应用商店双图 2 套，版位=小米搜索三图，IP=豆包，不用 Logo",
+      "expected_output": "AI 生成图片后必须调用 build_selection_page.py 把两套图写入 image-selection.html，确保 HTML 里含所有生成图片。优先给本地 HTML/file 链接；若运行时打不开本地 HTML 或图片不显示，再启动临时 http.server。用户采纳前不写 image_groups。",
+      "files": []
+    },
+    {
+      "id": 11,
+      "name": "missing-font-defaults-without-question",
+      "prompt": "C-001 应用商店双图 2 套，版位=OPPO 富媒体横版两图，IP=豆包，不用 Logo",
+      "expected_output": "AI 不应因为用户没选字体而反问。默认从 assets/font-references/ 的洋葱专属字体参考图里随机/轮换选 1 张，并加入 base prompt 的 reference_images；同一套双图用同一张字体参考，branch 通过 base PNG 继承不重复传。prompt 要写学习字形气质、描边、排版节奏并和画面融合，不要求 100% 复刻，不复制参考图里的示例文字。",
+      "files": []
+    },
+    {
+      "id": 12,
+      "name": "local-config-page-before-render-then-selection-page",
+      "prompt": "我选择第二条吧，然后根据第二条给我出图吧。",
+      "expected_output": "AI 应先判断第二条文案是否已入库并取得 C-ID；进入生图前如果缺版位、套数、Logo、IP、CTA、界面参考等视觉配置，应启动 scripts/interactive_server.py，把 /image-config 链接给用户，并在用户保存后读取 image-config-result.json。随后按该 JSON 生成 prompt、validate-only、渲染；成图后调用 build_selection_page.py 生成 image-selection.html，并在同一本地服务下给 /image-selection.html 让用户标注/选择。用户采纳前不写 image_groups。",
+      "files": []
+    },
+    {
+      "id": 13,
+      "name": "live-selection-page-and-feishu-upload-gate",
+      "prompt": "C-201 先生成 10 套，后面如果效果可以再继续追加 10 套，页面别让我重新打开，标注采纳的才入库。",
+      "expected_output": "AI 应使用同一个 interactive_server.py 服务承载配置页和选择/标注页。每生成完一套或一批，要把 schemes POST 到 /api/image-sets，更新 image-sets.json，让已打开的 image-selection.html 自动轮询显示新图并保留已标注状态。用户提交后读取 image-selection-result.json；只有 accepted_schemes 能写入飞书 image_groups，rejected_schemes 和 pending_scheme_ids 不得上传，只能用于反馈复盘。",
+      "files": []
+    },
+    {
+      "id": 14,
+      "name": "config-page-groups-placement-and-uses-thumbnail-assets",
+      "prompt": "C-001 要先配图片参数，我要自己选应用商店还是信息流，Logo 和 IP 要看图，字体不用选具体哪张。",
+      "expected_output": "AI 应启动 image-config 页面。页面左侧先按应用商店 / 学习机 / 信息流 / 百度分大类，再显示该大类下具体版位；已选版位跨大类保留，允许同一文案选择多个渠道/版位。套数为 1-50 的手动数字输入。Logo 和 IP 从 asset-manifest 读取并显示本地缩略图，IP 有随机选项。字体参考只提供启用/不启用；启用后每张图随机抽取 font-references 中一张。CTA 按具体版位 policy 显示；界面或功能参考图应提示用户在 Codex 对话上传截图，不在 HTML 内上传。保存结果 generation_mode=explore。",
+      "files": []
+    },
+    {
+      "id": 15,
+      "name": "selection-page-result-json-is-upload-gate",
+      "prompt": "图片选择页打开了：http://127.0.0.1:8787/image-selection.html，看完后我是不是直接回复选 set1？",
+      "expected_output": "AI 不应要求用户回复“选 set1 / 选 set2 / 选第 N 套”来入库。应要求用户在图片选择页完成采纳/不采纳标注并点击提交；若服务可写，AI 读取 image-selection-result.json；若无法写入，用户粘贴页面复制出的同结构 JSON。只有 JSON 里的 accepted_schemes 可以传给 write_image_group.py 写飞书 image_groups，rejected_schemes 和 pending_scheme_ids 不上传。",
+      "files": []
+    }
+  ]
+}

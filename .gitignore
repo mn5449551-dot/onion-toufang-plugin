@@ -1,0 +1,28 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local runtime secrets and generated artifacts.
+.env
+.env.*
+!.env.template
+*.log
+
+# Local image generation outputs should stay outside the plugin repo.
+/tmp/
+/outputs/
+/dist/
+/build/
+accepted-package-assets/
+selection-assets/
+image-config-result.json
+image-selection-result.json
+image-sets.json
+*.compressed-*kb.jpg
+*.zip
+
+# Dependency folders if maintainers run local tooling here.
+node_modules/
+.venv/
+venv/

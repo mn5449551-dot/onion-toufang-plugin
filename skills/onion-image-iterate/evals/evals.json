@@ -1,0 +1,33 @@
+{
+  "skill_name": "onion-image-iterate",
+  "evals": [
+    {
+      "id": 0,
+      "name": "full-brief-expand-with-ip-axis",
+      "prompt": "G-005 扩同类换上官 IP 3 套",
+      "expected_output": "AI 应识别为扩同类，轴=IP，数量=3。读取 G-005 原图组、关联文案和方向，保持方向/卖点/图片形式不变，换上官 IP 并生成 3 套同类但不重复的新图。新图写入时 parent_group_id 指向 G-005。",
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "missing-info-asks-iteration-intent",
+      "prompt": "改 G-005",
+      "expected_output": "AI 应识别原图组已给，但缺改动意图。只询问迭代力度和要改的轴，例如微调/扩同类/换形式以及 IP/文案/场景/比例/Logo/CTA/风格，不应直接开始生图。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "micro-edit-form-conflict",
+      "prompt": "微调，把单图改成三图",
+      "expected_output": "AI 应指出这不是微调而是换形式，因为图片形式从单图改三图会改变结构和张数。应建议切到换形式模式，并说明如果继续需要按新图组流程重做且记录血缘。",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "uploaded-image-lightweight-iteration-has-no-required-upstream",
+      "prompt": "基于这张图，把 CTA 换成“立即体验”，角色换小锤，其他尽量别动",
+      "expected_output": "AI 应识别为基于上传图的轻量微调，当前图就是视觉锚点；不应要求用户提供 G-ID，也不强制回查方向或文案。只改 CTA 和 IP 两个轴，其他 SAME；用户确认入库时可以没有 parent_group_id、copy_id、direction_id。",
+      "files": []
+    }
+  ]
+}

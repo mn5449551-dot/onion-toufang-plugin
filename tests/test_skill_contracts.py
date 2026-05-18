@@ -1,0 +1,179 @@
+import re
+import unittest
+import json
+from pathlib import Path
+
+
+PLUGIN_ROOT = Path(__file__).resolve().parents[1]
+HARDCODED_PLUGIN_ROOT = "/Users/xhh/app_tixiao/skill_toufang/onion-toufang-plugin"
+
+
+class SkillContractTests(unittest.TestCase):
+    def iter_docs(self):
+        for root in (PLUGIN_ROOT / "skills", PLUGIN_ROOT / "shared"):
+            yield from root.rglob("*.md")
+        yield PLUGIN_ROOT / "README.md"
+
+    def test_runtime_docs_do_not_hardcode_local_plugin_root(self):
+        offenders = []
+        for path in self.iter_docs():
+            text = path.read_text(encoding="utf-8")
+            if HARDCODED_PLUGIN_ROOT in text:
+                offenders.append(str(path.relative_to(PLUGIN_ROOT)))
+
+        self.assertEqual(offenders, [])
+
+    def test_base_schema_pending_and_field_count_are_consistent(self):
+        text = (PLUGIN_ROOT / "shared" / "base_schema.md").read_text(encoding="utf-8")
+
+        self.assertIn("## 表 2：`copies`（文案，14 字段）", text)
+        self.assertNotIn("下次启动 skill 自动补", text)
+
+    def test_referenced_shared_scripts_exist(self):
+        missing = []
+        pattern = re.compile(r"shared/scripts/([A-Za-z0-9_]+\.py)")
+        for path in self.iter_docs():
+            text = path.read_text(encoding="utf-8")
+            for script_name in pattern.findall(text):
+                script_path = PLUGIN_ROOT / "shared" / "scripts" / script_name
+                if not script_path.exists():
+                    missing.append(f"{path.relative_to(PLUGIN_ROOT)} -> {script_name}")
+
+        self.assertEqual(missing, [])
+
+    def test_skill_docs_use_skill_relative_shared_paths(self):
+        offenders = []
+        pattern = re.compile(r"(?<!\.\./\.\./)(?<!\w)shared/")
+        for path in (PLUGIN_ROOT / "skills").glob("*/SKILL.md"):
+            text = path.read_text(encoding="utf-8")
+            for match in pattern.finditer(text):
+                offenders.append(f"{path.relative_to(PLUGIN_ROOT)}:{text[:match.start()].count(chr(10)) + 1}")
+
+        self.assertEqual(offenders, [])
+
+    def test_codex_plugin_manifest_exists_without_placeholders(self):
+        manifest_path = PLUGIN_ROOT / ".codex-plugin" / "plugin.json"
+        self.assertTrue(manifest_path.exists())
+
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        self.assertEqual(manifest["name"], "onion-toufang")
+        self.assertEqual(manifest["skills"], "./skills/")
+        self.assertNotIn("<", json.dumps(manifest, ensure_ascii=False))
+
+    def test_direction_selection_and_stage_contracts_are_explicit(self):
+        text = (PLUGIN_ROOT / "skills" / "onion-direction" / "SKILL.md").read_text(encoding="utf-8")
+
+        self.assertIn("候选方向展示时必须显式显示 `适配阶段`", text)
+        self.assertIn("选择第 N 条 / 方向一 / 就用这个", text)
+        self.assertIn("先只把被选中的方向写入 Base", text)
+        self.assertIn("入库后必须问下一步", text)
+        self.assertIn("一次选择多个方向", text)
+
+    def test_copy_missing_channel_and_form_must_ask(self):
+        text = (PLUGIN_ROOT / "skills" / "onion-copy" / "SKILL.md").read_text(encoding="utf-8")
+
+        self.assertIn("缺任一项就问，不默认信息流或单图", text)
+        self.assertIn("不能因为上文示例或模型偏好默认成信息流", text)
+        self.assertIn("先只把被选中的文案写入 Base", text)
+        self.assertIn("不要立刻写入", text)
+        self.assertIn("入库、基于它出图，还是继续改文案", text)
+
+    def test_copy_quality_guardrails_include_real_bad_phrases(self):
+        fields = (PLUGIN_ROOT / "skills" / "onion-copy" / "references" / "字段定义-文案.md").read_text(encoding="utf-8")
+        mistakes = (PLUGIN_ROOT / "skills" / "onion-copy" / "references" / "常见误区.md").read_text(encoding="utf-8")
+
+        self.assertIn("洋葱不懂还能继续问", fields)
+        self.assertIn("洋葱一拍，解析秒出", fields)
+        self.assertIn("看不懂，再问洋葱 AI", fields)
+        self.assertIn("主语自检", mistakes)
+
+    def test_image_visual_config_preview_and_write_contracts_are_explicit(self):
+        text = (PLUGIN_ROOT / "skills" / "onion-image" / "SKILL.md").read_text(encoding="utf-8")
+
+        self.assertIn("Logo、CTA、IP 或界面/功能参考图", text)
+        self.assertIn("不要直接默认信息流竖版", text)
+        self.assertIn("确认 `LAOZHANG_API_KEY` 存在且不是占位符", text)
+        self.assertIn("成图后必须进入 `templates/image-selection.html` 选择页", text)
+        self.assertIn("先问目标版位", text)
+        self.assertIn("目标尺寸、gpt 出图尺寸、KB 上限", text)
+        self.assertIn("assets/asset-manifest.json", text)
+        self.assertIn("scripts/build_selection_page.py", text)
+        self.assertIn("scripts/interactive_server.py", text)
+        self.assertIn("image-config-result.json", text)
+        self.assertIn("image-selection-result.json", text)
+        self.assertIn("版位先选大类", text)
+        self.assertIn("已选版位跨大类保留", text)
+        self.assertIn("随机 IP", text)
+        self.assertIn("render_size", text)
+        self.assertIn("target_size", text)
+        self.assertIn("范围 1-50", text)
+        self.assertIn("Logo 和 IP 必须显示本地资产缩略图", text)
+        self.assertIn("字体参考只有启用 / 不启用", text)
+        self.assertIn("CTA 按具体版位的 `cta_policy` 显示", text)
+        self.assertIn("不在 HTML 里上传", text)
+        self.assertIn("探索生成", text)
+        self.assertIn("同类扩展", text)
+        self.assertIn("/api/image-sets", text)
+        self.assertIn("accepted_schemes", text)
+        self.assertIn("唯一允许写入飞书", text)
+        self.assertIn("不要让用户在聊天里回复“选 set1 / 选 set2 / 选第 N 套”", text)
+        self.assertIn("优先读取 `image-selection-result.json`", text)
+        self.assertIn("页面复制出的同结构 JSON", text)
+        self.assertIn("请在页面完成标注并点击提交", text)
+        self.assertIn("scripts/package_accepted_images.py", text)
+        self.assertIn("scripts/cleanup_image_outputs.py", text)
+        self.assertIn("超过 7 天的原始 PNG", text)
+        self.assertIn("先配置页，后标注/选择页", text)
+        self.assertIn("selection-assets", text)
+        self.assertIn("洋葱专属字体参考图", text)
+        self.assertIn("默认 200KB", text)
+
+    def test_image_default_font_is_not_blocking(self):
+        skill = (PLUGIN_ROOT / "skills" / "onion-image" / "SKILL.md").read_text(encoding="utf-8")
+        visual = (PLUGIN_ROOT / "skills" / "onion-image" / "references" / "视觉元素规范.md").read_text(encoding="utf-8")
+        single = (PLUGIN_ROOT / "shared" / "recipes" / "single-prompt.md").read_text(encoding="utf-8")
+        base = (PLUGIN_ROOT / "shared" / "recipes" / "base-prompt.md").read_text(encoding="utf-8")
+
+        self.assertIn("字体不是阻塞项", skill)
+        self.assertIn("随机/轮换选 1 张", visual)
+        self.assertIn("不要求 100% 复刻", skill)
+        self.assertIn("不复制参考图里的示例文字", visual)
+        self.assertIn("default font is an Onion font reference image", single)
+        self.assertIn("Default font still uses an Onion font reference image", base)
+
+    def test_new_teacher_ip_assets_are_documented(self):
+        visual = (PLUGIN_ROOT / "skills" / "onion-image" / "references" / "视觉元素规范.md").read_text(encoding="utf-8")
+        naming = (PLUGIN_ROOT / "skills" / "onion-image" / "references" / "资产命名与参考图标注.md").read_text(encoding="utf-8")
+
+        self.assertIn("张无限老师", visual)
+        self.assertIn("文心老师", visual)
+        self.assertIn("Nina老师", visual)
+        self.assertIn("ip.zhangwuxian.teacher.fullbody.001", visual)
+        self.assertIn("ip.wenxin.teacher.fullbody.001", visual)
+        self.assertIn("ip.nina.teacher.fullbody.001", visual)
+        self.assertIn("stage=teacher", naming)
+        self.assertNotIn("文思老师", visual)
+
+    def test_image_export_docs_include_zip_and_cleanup_policy(self):
+        text = (PLUGIN_ROOT / "skills" / "onion-image" / "references" / "压缩与导出.md").read_text(encoding="utf-8")
+
+        self.assertIn("采纳图打 zip", text)
+        self.assertIn("package_accepted_images.py", text)
+        self.assertIn("accepted_schemes", text)
+        self.assertIn("原始 PNG 保留 7 天", text)
+        self.assertIn("cleanup_image_outputs.py", text)
+        self.assertIn("50 套三图", text)
+
+    def test_runtime_adapter_has_non_modal_choice_fallback(self):
+        text = (PLUGIN_ROOT / "shared" / "references" / "runtime-adapters.md").read_text(encoding="utf-8")
+
+        self.assertIn("Do not rely on modal popups", text)
+        self.assertIn("local HTML interaction page", text)
+        self.assertIn("image-config-result.json", text)
+        self.assertIn("image-sets.json", text)
+        self.assertIn("explicit numbered or named options", text)
+        self.assertIn("Copy selected", text)
+
+
+if __name__ == "__main__":
+    unittest.main()

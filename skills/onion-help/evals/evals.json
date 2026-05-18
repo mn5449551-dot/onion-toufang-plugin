@@ -1,0 +1,20 @@
+{
+  "skill_name": "onion-help",
+  "evals": [
+    {
+      "id": "environment-readiness",
+      "prompt": "帮我看下 onion 投放插件环境配置好了没，现在能跑吗？",
+      "expected_output": "按最小必要检查面输出环境自检，覆盖 runtime adapter、共享脚本 dry-run、render validate 和 pending 队列；有阻塞项时给具体修复建议，不自动修复。"
+    },
+    {
+      "id": "base-progress-only",
+      "prompt": "看下现在 Base 里方向、文案、图组还有多少待用，还有没有待审反馈。",
+      "expected_output": "优先输出 Base 状态摘要和 pending 队列摘要，不跑老张 API 连通性；下一步建议使用“你可以”而不是强制流程。"
+    },
+    {
+      "id": "pending-ambiguous",
+      "prompt": "pending 队列是不是有失败项？帮我判断能不能重试。",
+      "expected_output": "解析 pending.jsonl 的 retry_count 与 ambiguous 字段；ambiguous 项要求先人工核对 Base，不自动 retry。"
+    }
+  ]
+}
