@@ -502,6 +502,49 @@ class BaseScriptTests(unittest.TestCase):
             self.assertIn("system-managed", result.stderr)
             self.assertFalse(self.pending_path(tmp).exists())
 
+    def test_write_image_group_writes_completion_marker_after_success(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            image = root / "set1_img1.png"
+            image.write_bytes(b"fake")
+            marker = root / "image-write-result.json"
+            fake_lark = self.make_fake_lark(
+                root,
+                """#!/usr/bin/env python3
+import json
+import sys
+if "+record-batch-create" in sys.argv:
+    print(json.dumps({"data": {"record_ids": ["recImg"]}}))
+elif "+record-upload-attachment" in sys.argv:
+    print(json.dumps({"ok": True}))
+else:
+    print(json.dumps({"ok": True}))
+""",
+            )
+            env = self.make_env(root, fake_lark=fake_lark)
+
+            result = self.run_script(
+                "write_image_group.py",
+                "--copy-id",
+                "recCopy",
+                "--images",
+                json.dumps([{"index": 1, "path": str(image)}]),
+                "--metadata",
+                '{"图片形式":"单图","状态":"待用"}',
+                "--no-compress",
+                "--write-result",
+                str(marker),
+                env=env,
+            )
+            payload = self.read_json_stdout(result)
+
+            self.assertTrue(payload["ok"])
+            self.assertEqual(payload["record_id"], "recImg")
+            self.assertTrue(marker.exists())
+            marker_payload = json.loads(marker.read_text(encoding="utf-8"))
+            self.assertEqual(marker_payload["record_id"], "recImg")
+            self.assertEqual(marker_payload["copy_id"], "recCopy")
+
 
 if __name__ == "__main__":
     unittest.main()

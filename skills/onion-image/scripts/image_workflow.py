@@ -11,12 +11,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import sys
 from typing import Any
 
 
 DEFAULT_ROOT = Path("/tmp/onion-ad")
+ENV_FILE = Path.home() / ".onion-ad" / ".env"
+PLACEHOLDER_KEY_MARKERS = ("你的", "占位", "sk-xxx", "sk-your-key", "your-key")
 
 
 def load_json(path: Path) -> dict[str, Any] | None:
@@ -26,6 +29,34 @@ def load_json(path: Path) -> dict[str, Any] | None:
     if not isinstance(data, dict):
         raise ValueError(f"{path.name} must be a JSON object")
     return data
+
+
+def load_dotenv_if_exists(path: Path) -> None:
+    path = path.expanduser()
+    if not path.is_file():
+        return
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("\"'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+def load_runtime_env(output_dir: Path) -> None:
+    for candidate in (Path.home() / ".onion-ad" / ".env", Path.cwd() / ".env", output_dir / ".env"):
+        load_dotenv_if_exists(candidate)
+
+
+def api_key_ready() -> bool:
+    value = str(os.environ.get("LAOZHANG_API_KEY") or "").strip()
+    if not value:
+        return False
+    lowered = value.lower()
+    return not any(marker in lowered for marker in PLACEHOLDER_KEY_MARKERS)
 
 
 def non_empty_list(value: Any) -> bool:
@@ -54,14 +85,19 @@ def ui_reference_required(config: dict[str, Any] | None) -> bool:
 def ui_reference_satisfied(config: dict[str, Any] | None, output_dir: Path) -> bool:
     if not ui_reference_required(config):
         return True
-    status = str((config or {}).get("ui_reference_upload_status") or "").strip()
-    if status in {"uploaded", "provided", "satisfied"}:
-        return True
     marker = output_dir / "ui-reference-uploaded.json"
     if marker.is_file():
         return True
     reference_dir = output_dir / "ui-reference"
-    return reference_dir.is_dir() and any(path.is_file() for path in reference_dir.iterdir())
+    if reference_dir.is_dir() and any(path.is_file() for path in reference_dir.iterdir()):
+        return True
+    references = (config or {}).get("reference_images") or []
+    if isinstance(references, list):
+        for item in references:
+            value = item.get("path") if isinstance(item, dict) else item
+            if value and Path(str(value)).expanduser().is_file():
+                return True
+    return False
 
 
 def package_exists(request_id: str, output_dir: Path) -> bool:
@@ -72,8 +108,31 @@ def package_exists(request_id: str, output_dir: Path) -> bool:
     return any(path.is_file() for path in candidates) or any(output_dir.glob("*accepted*.zip"))
 
 
+def request_id_errors(request_id: str, artifacts: list[tuple[str, dict[str, Any] | None]]) -> list[str]:
+    errors = []
+    for name, data in artifacts:
+        if not data:
+            continue
+        artifact_request_id = data.get("request_id")
+        if artifact_request_id and str(artifact_request_id) != request_id:
+            errors.append(f"{name}.request_id={artifact_request_id} does not match {request_id}")
+    return errors
+
+
+def config_errors(config: dict[str, Any] | None) -> list[str]:
+    if not config:
+        return []
+    placements = config.get("placements")
+    if not isinstance(placements, list) or not placements:
+        return ["image-config-result.json must include non-empty placements"]
+    if not any(isinstance(item, dict) and item.get("render_size") for item in placements):
+        return ["placements must include render_size"]
+    return []
+
+
 def build_status(request_id: str, output_dir: Path) -> dict[str, Any]:
     output_dir = output_dir.expanduser().resolve()
+    load_runtime_env(output_dir)
     config_path = output_dir / "image-config-result.json"
     sets_path = output_dir / "image-sets.json"
     selection_path = output_dir / "image-selection-result.json"
@@ -113,6 +172,31 @@ def build_status(request_id: str, output_dir: Path) -> dict[str, Any]:
             "next_action": "启动 scripts/interactive_server.py 打开 /image-config，让用户保存本轮图片配置。",
         }
 
+    stale_errors = request_id_errors(
+        request_id,
+        [
+            ("image-config-result.json", config),
+            ("image-sets.json", image_sets),
+            ("image-selection-result.json", selection),
+        ],
+    )
+    if stale_errors:
+        return {
+            **base,
+            "stage": "invalid_artifacts",
+            "errors": stale_errors,
+            "next_action": "当前输出目录里的 request_id 与本轮不一致。停止续跑，确认 --request-id 和 --output-dir 是否匹配，避免使用旧文件。",
+        }
+
+    invalid_config = config_errors(config)
+    if invalid_config:
+        return {
+            **base,
+            "stage": "invalid_config",
+            "errors": invalid_config,
+            "next_action": "image-config-result.json 缺少有效 placements/render_size。请重新打开配置页保存配置，不要直接渲染。",
+        }
+
     if ui_reference_required(config) and not ui_reference_satisfied(config, output_dir):
         return {
             **base,
@@ -121,6 +205,12 @@ def build_status(request_id: str, output_dir: Path) -> dict[str, Any]:
         }
 
     if not has_rendered_sets(image_sets):
+        if not api_key_ready():
+            return {
+                **base,
+                "stage": "needs_api_key",
+                "next_action": "LAOZHANG_API_KEY 缺失或仍是占位符。先运行 onion-help 环境检查，或补 ~/.onion-ad/.env 后再渲染。",
+            }
         return {
             **base,
             "stage": "ready_to_render",

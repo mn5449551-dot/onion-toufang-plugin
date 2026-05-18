@@ -146,6 +146,30 @@ def run_best_effort_cleanup() -> Dict[str, Any]:
     return payload
 
 
+def infer_write_result_path(images: List[Dict[str, Any]]) -> Optional[Path]:
+    paths = [Path(str(image["path"])).expanduser() for image in images if image.get("path")]
+    if not paths:
+        return None
+    try:
+        common = Path(os.path.commonpath([str(path.resolve()) for path in paths]))
+    except ValueError:
+        return None
+    output_dir = common if common.is_dir() else common.parent
+    if output_dir == output_dir.parent:
+        return None
+    return output_dir / "image-write-result.json"
+
+
+def write_completion_marker(path: Optional[Path], payload: Dict[str, Any]) -> None:
+    if not path:
+        return
+    path = path.expanduser().resolve()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_suffix(path.suffix + ".tmp")
+    temp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    temp.replace(path)
+
+
 def build_record_fields(
     direction_id: Optional[str],
     copy_id: Optional[str],
@@ -211,6 +235,7 @@ def main(argv: List[str] | None = None) -> int:
     parser.add_argument("--metadata", required=True, help="JSON object with image group metadata fields")
     parser.add_argument("--target-kb", type=int, help="Default compressed image target size in KB; metadata 目标KB and per-image target_kb can also set it")
     parser.add_argument("--no-compress", action="store_true", help="Upload original image files instead of compressed JPGs")
+    parser.add_argument("--write-result", help="Path to write a completion marker JSON after successful record and attachment upload")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
 
@@ -286,7 +311,20 @@ def main(argv: List[str] | None = None) -> int:
                 )
                 return attach_code
         cleanup_result = run_best_effort_cleanup()
-        print(json.dumps({"ok": True, "record_id": record_id, "attachments": attachment_results, "cleanup": cleanup_result}, ensure_ascii=False))
+        output = {
+            "ok": True,
+            "record_id": record_id,
+            "direction_id": args.direction_id,
+            "copy_id": args.copy_id,
+            "parent_group_id": parent_group_id,
+            "attachments": attachment_results,
+            "cleanup": cleanup_result,
+        }
+        marker_path = Path(args.write_result) if args.write_result else infer_write_result_path(images)
+        write_completion_marker(marker_path, output)
+        if marker_path:
+            output["write_result_path"] = str(marker_path.expanduser().resolve())
+        print(json.dumps(output, ensure_ascii=False))
         return 0
     except Exception as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False), file=sys.stderr)
