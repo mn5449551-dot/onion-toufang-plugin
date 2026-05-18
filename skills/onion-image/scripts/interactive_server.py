@@ -25,7 +25,6 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 SKILL_DIR = SCRIPT_DIR.parent
 PLUGIN_ROOT = SKILL_DIR.parents[1]
 DEFAULT_CHANNEL_RULES = SKILL_DIR / "config" / "channel-placement-rules.json"
-DEFAULT_PLATFORM_RULES = Path("/Users/xhh/app_tixiao/sucai/ai-ad-platform/config/platform-rules.json")
 ASSET_MANIFEST = SKILL_DIR / "assets" / "asset-manifest.json"
 FONT_DIR = SKILL_DIR / "assets" / "font-references"
 if str(SCRIPT_DIR) not in sys.path:

@@ -209,7 +209,7 @@
       "variant": "fullbody",
       "variant_display_name": "全身立绘",
       "path": "assets/ip-roles/nina/nina-teacher-fullbody-001.png",
-      "source_files": ["/Users/xhh/Downloads/1280X1280 (1).PNG"],
+      "source_note": "Imported from maintainer-provided full-body asset.",
       "prompt_role": "Nina老师全身立绘参考图"
     },
     {
@@ -223,7 +223,7 @@
       "variant": "fullbody",
       "variant_display_name": "全身立绘",
       "path": "assets/ip-roles/wenxin/wenxin-teacher-fullbody-001.png",
-      "source_files": ["/Users/xhh/Downloads/1280X1280 (2).PNG"],
+      "source_note": "Imported from maintainer-provided full-body asset.",
       "prompt_role": "文心老师全身立绘参考图"
     },
     {
@@ -237,7 +237,7 @@
       "variant": "fullbody",
       "variant_display_name": "全身立绘",
       "path": "assets/ip-roles/zhangwuxian/zhangwuxian-teacher-fullbody-001.png",
-      "source_files": ["/Users/xhh/Downloads/20250430-180839.png"],
+      "source_note": "Imported from maintainer-provided full-body asset.",
       "prompt_role": "张无限老师全身立绘参考图"
     }
   ]

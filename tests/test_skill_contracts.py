@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[1]
-HARDCODED_PLUGIN_ROOT = "/Users/xhh/app_tixiao/skill_toufang/onion-toufang-plugin"
+HARDCODED_PLUGIN_ROOT_FRAGMENT = "app_tixiao/skill_toufang/onion-toufang-plugin"
 
 
 class SkillContractTests(unittest.TestCase):
@@ -14,12 +14,38 @@ class SkillContractTests(unittest.TestCase):
             yield from root.rglob("*.md")
         yield PLUGIN_ROOT / "README.md"
 
+    def iter_text_files(self):
+        text_suffixes = {".md", ".json", ".py", ".toml", ".template", ".txt", ".html"}
+        skip_dirs = {".git", "__pycache__", ".pytest_cache"}
+        for path in PLUGIN_ROOT.rglob("*"):
+            if not path.is_file():
+                continue
+            if any(part in skip_dirs for part in path.parts):
+                continue
+            if path.suffix in text_suffixes or path.name.startswith(".env"):
+                yield path
+
     def test_runtime_docs_do_not_hardcode_local_plugin_root(self):
         offenders = []
         for path in self.iter_docs():
             text = path.read_text(encoding="utf-8")
-            if HARDCODED_PLUGIN_ROOT in text:
+            if HARDCODED_PLUGIN_ROOT_FRAGMENT in text:
                 offenders.append(str(path.relative_to(PLUGIN_ROOT)))
+
+        self.assertEqual(offenders, [])
+
+    def test_repository_does_not_expose_real_people_or_personal_paths(self):
+        banned = [
+            "徐" + "豪",
+            "王" + "雪" + "纯",
+            "/Users/" + "xhh",
+        ]
+        offenders = []
+        for path in self.iter_text_files():
+            text = path.read_text(encoding="utf-8")
+            for item in banned:
+                if item in text:
+                    offenders.append(f"{path.relative_to(PLUGIN_ROOT)} -> {item}")
 
         self.assertEqual(offenders, [])
 

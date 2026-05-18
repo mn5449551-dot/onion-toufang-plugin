@@ -81,7 +81,7 @@ class BaseScriptTests(unittest.TestCase):
                 "--table-id",
                 "tblLWPSHrZT95oy7",
                 "--records",
-                '[{"fields":{"素材方向":"方向 A","创建人":"徐豪","状态":"待用"}}]',
+                '[{"fields":{"素材方向":"方向 A","创建人":"测试用户","状态":"待用"}}]',
                 "--dry-run",
                 env=env,
             )

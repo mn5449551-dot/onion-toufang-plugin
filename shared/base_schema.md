@@ -1,7 +1,7 @@
 # 飞书 Base Schema 速查
 
 > 4 张表的字段映射 + field_id 缓存指引。本文件是业务 schema 事实源；运行时写入优先走 `shared/scripts/*`，不要在主 Skill 里手拼 Base 命令。
-> Schema 真相源：`/Users/xhh/app_tixiao/skill_toufang/技能设计/09-Base表结构详细设计.md`
+> Schema 真相源：内部设计文档 `09-Base表结构详细设计.md`
 
 ---
 
@@ -41,7 +41,7 @@ Base URL: https://guanghe.feishu.cn/base/WIoGb0ksnaREvJsPtQCcW8Lsnfg
 
 用户给 `D-XXX` / `C-XXX` / `G-XXX` 但上下文没有记录内容时，先用 `shared/scripts/lookup_record.py` 回查 Base 并取得真实 `record_id`。不要把自动编号直接写入 link 字段。用户只给临时文案或上传图片时，不需要为了补全上游链路而回查 Base。
 
-> ⚠️ **正式上线时切到生产 Base**：徐豪建好生产 Base 后，把本文件和 `.env.template` 里的 Base Token + 4 个 table_id 改成生产值，git commit + push。团队成员 pull 后复制新版模板，或手动同步 `~/.onion-ad/.env`。
+> ⚠️ **正式上线时切到生产 Base**：插件维护人建好生产 Base 后，把本文件和 `.env.template` 里的 Base Token + 4 个 table_id 改成生产值，git commit + push。团队成员 pull 后复制新版模板，或手动同步 `~/.onion-ad/.env`。
 >
 > 用户通常只需要手动填写 **`LAOZHANG_API_KEY`**；Base token/TID 使用模板默认值。
 

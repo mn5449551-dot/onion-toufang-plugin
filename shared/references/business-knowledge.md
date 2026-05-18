@@ -2,9 +2,9 @@
 
 本文件说明如何把素材平台和已爬取 APP 图文资料用于 onion Skills。业务知识源在：
 
-`/Users/xhh/app_tixiao/sucai/ai-ad-platform/docs/business-knowledge`
+`ai-ad-platform/docs/business-knowledge`
 
-`/Users/xhh/app_tixiao/skill_toufang/app图文`
+`app图文`
 
 ## 加载原则
 

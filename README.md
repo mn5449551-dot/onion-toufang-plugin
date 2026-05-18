@@ -157,7 +157,7 @@ feedbacks（反馈池，记录稳定可复用的用户反馈）
 
 ## 🔄 版本管理 + 升级
 
-| 维护人（徐豪）| 团队成员 |
+| 插件维护人 | 团队成员 |
 |---|---|
 | 改 SKILL.md / 加 references / 修 bug → git commit + push | `/plugin marketplace update onion-toufang` 拉最新 |
 | 改 Base schema（如加字段）→ 改 shared/base_schema.md + push | 同上 |
@@ -168,14 +168,14 @@ feedbacks（反馈池，记录稳定可复用的用户反馈）
 ## 🐛 反馈 & 问题
 
 - 用 plugin 中遇到 bug / 改进建议 → 在 Claude Code 里直接说"我要反馈 G-XXX 这套图"。
-- 主 skill 会观察稳定反馈；确认有复用价值时写进 `feedbacks` 表，徐豪定期 review 升级 plugin。
-- 紧急问题：私聊徐豪 / 投放团队群 @ 徐豪
+- 主 skill 会观察稳定反馈；确认有复用价值时写进 `feedbacks` 表，由插件维护人定期 review 升级 plugin。
+- 紧急问题：联系插件维护人 / 投放团队群管理员。
 
 ---
 
 ## 📋 设计文档（开发者）
 
-`/Users/xhh/app_tixiao/skill_toufang/技能设计/` 下有完整设计文档：
+内部设计文档目录下有完整设计资料：
 - `01-架构设计.md` - 顶层架构
 - `09-Base表结构详细设计.md` - schema 真相源
 - `10-脚本实现细节.md` - 瘦身版架构说明
