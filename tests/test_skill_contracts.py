@@ -127,6 +127,11 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("selection-assets", text)
         self.assertIn("洋葱专属字体参考图", text)
         self.assertIn("默认 200KB", text)
+        self.assertIn("图片配置页是所有付费生图的强制入口", text)
+        self.assertIn("不能作为跳过配置页的理由", text)
+        self.assertIn("不允许绕过配置页直接生图", text)
+        self.assertIn("不允许调用聊天内置 imagegen", text)
+        self.assertNotIn("完整 brief 不弹配置卡", text)
 
     def test_image_default_font_is_not_blocking(self):
         skill = (PLUGIN_ROOT / "skills" / "onion-image" / "SKILL.md").read_text(encoding="utf-8")
@@ -171,6 +176,8 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("local HTML interaction page", text)
         self.assertIn("image-config-result.json", text)
         self.assertIn("image-sets.json", text)
+        self.assertIn("mandatory for every paid image request", text)
+        self.assertIn("cannot skip the config page", text)
         self.assertIn("explicit numbered or named options", text)
         self.assertIn("Copy selected", text)
 

@@ -3,9 +3,9 @@
   "evals": [
     {
       "id": 0,
-      "name": "full-brief-triple-no-extra-question",
+      "name": "full-brief-triple-still-opens-config-page",
       "prompt": "C-101 出三图 3 套，Logo=洋葱学园，IP=豆包，OPPO 横版三图",
-      "expected_output": "AI 应读取 C-101 的文案和关联方向，继承渠道/图片形式；用户已给 Logo、IP、版位和套数，因此不应再弹完整配置卡。按三图链式生成：每套先出图1 base，再用图1作为参考生成图2/图3。结果先给用户选择，不自动写 Base。",
+      "expected_output": "AI 应读取 C-101 的文案和关联方向，并把用户已给的 Logo、IP、版位、形式、套数作为 image-config 页面上下文/预填信息；即使 brief 已完整，也必须先启动 scripts/interactive_server.py，把 /image-config 链接给用户确认并保存 image-config-result.json。只有读取本轮配置 JSON 后，才能按三图链式生成：每套先出图1 base，再用图1作为参考生成图2/图3。结果进入选择页，用户采纳前不写 Base。",
       "files": []
     },
     {
@@ -61,7 +61,7 @@
       "id": 8,
       "name": "selected-copy-image-asks-visual-config",
       "prompt": "我选择第二条吧，然后根据第二条给我出图吧。",
-      "expected_output": "AI 应识别为选择续跑：第二条文案被用户确认采纳，若尚未入库应先只写入被选中的文案并取得 record_id。进入生图前必须确认缺失视觉配置：渠道/图片形式能否继承、版位、Logo 要不要、CTA、IP 用谁/随机/不用、是否加界面/功能卖点参考图或用户上传参考图。不能直接默认信息流竖版、默认 Logo、默认无 IP、默认无 CTA 后渲染。成图后必须进入 HTML 选择页，用户采纳后再压缩并写 image_groups。",
+      "expected_output": "AI 应识别为选择续跑：第二条文案被用户确认采纳，若尚未入库应先只写入被选中的文案并取得 record_id。进入生图前必须启动 /image-config 配置页确认视觉配置：渠道/图片形式能否继承、版位、Logo 要不要、CTA、IP 用谁/随机/不用、是否加界面/功能卖点参考图或用户上传参考图。不能直接默认信息流竖版、默认 Logo、默认无 IP、默认无 CTA 后渲染。成图后必须进入 HTML 选择页，用户采纳后再压缩并写 image_groups。",
       "files": []
     },
     {
@@ -75,7 +75,7 @@
       "id": 10,
       "name": "selection-page-is-built-by-script",
       "prompt": "C-001 应用商店双图 2 套，版位=小米搜索三图，IP=豆包，不用 Logo",
-      "expected_output": "AI 生成图片后必须调用 build_selection_page.py 把两套图写入 image-selection.html，确保 HTML 里含所有生成图片。优先给本地 HTML/file 链接；若运行时打不开本地 HTML 或图片不显示，再启动临时 http.server。用户采纳前不写 image_groups。",
+      "expected_output": "AI 即使拿到了版位、IP、Logo 等信息，也必须先启动 /image-config 配置页让用户确认并保存 image-config-result.json，随后才生成图片。生成图片后必须调用 build_selection_page.py 把两套图写入 image-selection.html，确保 HTML 里含所有生成图片。优先给同一交互服务下的链接；若运行时打不开本地 HTML 或图片不显示，再启动临时 http.server。用户采纳前不写 image_groups。",
       "files": []
     },
     {
@@ -89,7 +89,7 @@
       "id": 12,
       "name": "local-config-page-before-render-then-selection-page",
       "prompt": "我选择第二条吧，然后根据第二条给我出图吧。",
-      "expected_output": "AI 应先判断第二条文案是否已入库并取得 C-ID；进入生图前如果缺版位、套数、Logo、IP、CTA、界面参考等视觉配置，应启动 scripts/interactive_server.py，把 /image-config 链接给用户，并在用户保存后读取 image-config-result.json。随后按该 JSON 生成 prompt、validate-only、渲染；成图后调用 build_selection_page.py 生成 image-selection.html，并在同一本地服务下给 /image-selection.html 让用户标注/选择。用户采纳前不写 image_groups。",
+      "expected_output": "AI 应先判断第二条文案是否已入库并取得 C-ID；进入生图前必须启动 scripts/interactive_server.py，把 /image-config 链接给用户确认版位、套数、Logo、IP、CTA、界面参考等视觉配置，并在用户保存后读取 image-config-result.json。随后按该 JSON 生成 prompt、validate-only、渲染；成图后调用 build_selection_page.py 生成 image-selection.html，并在同一本地服务下给 /image-selection.html 让用户标注/选择。用户采纳前不写 image_groups。",
       "files": []
     },
     {
@@ -108,6 +108,13 @@
     },
     {
       "id": 15,
+      "name": "short-copy-request-must-open-config-before-any-image",
+      "prompt": "短句1：拍一下，先看答案\n短句2：洋葱逐步讲解，哪步不懂问哪步\n帮我出一个图片",
+      "expected_output": "AI 应识别这是临时文案生图入口。文案锚点已明确后，下一步必须启动 scripts/interactive_server.py 打开 /image-config 配置页，让用户选择版位、套数、Logo、IP、CTA、字体参考启用、是否需要界面/功能参考图和补充说明；不能调用聊天内置 imagegen 或其它通用图片工具直接贴出成图，也不能默认信息流、默认 Logo、默认 IP 后渲染。只有读取 image-config-result.json 后才能生成 prompt、validate-only、render.py 生图。",
+      "files": []
+    },
+    {
+      "id": 16,
       "name": "selection-page-result-json-is-upload-gate",
       "prompt": "图片选择页打开了：http://127.0.0.1:8787/image-selection.html，看完后我是不是直接回复选 set1？",
       "expected_output": "AI 不应要求用户回复“选 set1 / 选 set2 / 选第 N 套”来入库。应要求用户在图片选择页完成采纳/不采纳标注并点击提交；若服务可写，AI 读取 image-selection-result.json；若无法写入，用户粘贴页面复制出的同结构 JSON。只有 JSON 里的 accepted_schemes 可以传给 write_image_group.py 写飞书 image_groups，rejected_schemes 和 pending_scheme_ids 不上传。",
