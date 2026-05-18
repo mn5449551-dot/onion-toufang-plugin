@@ -8,16 +8,18 @@
 
 | Skill | 类型 | 干啥 | 触发举例 |
 |---|---|---|---|
-| `onion-router` | **总入口** | 先判断请求应该进入哪个 onion skill；只负责分流，不生成方向、不写文案、不生图、不写 Base | `我选第二条 / D-007 直接出图 / 上传这张图改文案 / 配置好了吗` |
+| `onion-using` | **使用协议** | 判断明确任务应直接进哪个原子 skill；入口歧义、选择第 N 条、D/C/G ID、上传图用途不明时在这里分诊；每个 skill 都要独立整理 Input Envelope | `我选第二条 / D-007 直接出图 / 上传这张图改文案` |
 | `onion-help` | **导航** | 环境自检（lark-cli/.env/Python/Pillow/老张 API/Base/Pending）+ Base 结构检查 + Base 状态摘要（4 表 status 计数 + feedbacks 待审）+ 轻量推荐下一步 | `环境检查 / 初始化 Base / 看下进度 / 配置好了吗` |
 | `onion-direction` | 核心 ① | 出/扩/改方向卡（投放素材的上游，也可基于 D-XXX 继续） | `拍题精学的开学季方向，3 条 / D-007 再扩 5 条` |
 | `onion-copy` | 核心 ② | 出/扩/改文案（基于方向、方向 ID、文案 ID 或临时样本）| `用 D-007 出信息流文案 3 套 / C-012 标题再扩 5 套` |
 | `onion-image` | 核心 ③ | 出图（基于 C-XXX 或临时文案调老张 API 批量生图 + 选图）| `用 C-104 出应用商店三图，2 套` |
 | `onion-image-iterate` | 核心 ④ | 扩/换/微调图（基于 G-XXX 或用户上传图迭代）| `G-005 量好，扩同类 3 套` |
 
-`onion-router` 是总分诊台，用来处理含糊入口和上下文续跑：`D-XXX` 不能直接跳到图，必须先形成可用文案；`C-XXX` 才能进入新图；`G-XXX` 或旧广告图进入迭代；用户口头说“选 set1”不能入库，必须用选择页标注结果。
+`onion-using` 是轻量使用协议：明确任务直接进入对应原子 skill；入口歧义、跨边界、D/C/G ID 续跑、上传图用途不明或“选择第 N 条”时由 `onion-using` 分诊。`D-XXX` 不能直接跳到图，必须先形成可用文案；`C-XXX` 才能进入新图；`G-XXX` 或旧广告图进入迭代；用户口头说“选 set1”不能入库，必须用选择页标注结果。
 
 4 个核心 skill 可以形成数据流：方向 → 文案 → 图 → 扩/换图；但不是强制线性流程。用户可以从合适入口开始：`D-XXX` 进 `onion-direction` / `onion-copy`，`C-XXX` 进 `onion-image`，`G-XXX` 或用户上传旧图进 `onion-image-iterate`。方向 ID 不能直接跳到图，必须先形成可用文案。
+
+所有入口都先整理统一 Input Envelope：用户输入可以是自然语言、ID、截图或 HTML 结果，但交给下游 skill、脚本和 Base 的字段必须结构化。创意 brief、参考案例、风格描述可以保留为非结构化原料，由对应 skill 提炼；版位、套数、ID、选择结果、写入准入等会影响工具动作的字段不能只藏在段落里。
 
 **推荐首次使用流程**：先调 `onion-help` 做一键环境自检 + 看 Base 状态，确认就绪再调核心 skill。
 
@@ -49,11 +51,9 @@ lark-cli auth login
 # 3. 安装 6 个 skill
 /plugin install onion-toufang@onion-toufang
 
-# 4. 配置 .env（保留默认 Base 配置，只填 LAOZHANG_API_KEY）
-mkdir -p ~/.onion-ad
-cp /path/to/onion-toufang-plugin/.env.template ~/.onion-ad/.env
-# 编辑 ~/.onion-ad/.env 填入 LAOZHANG_API_KEY
-chmod 600 ~/.onion-ad/.env
+# 4. 一键初始化本机配置（Mac / Windows 会自动适配用户目录和临时目录）
+python3 skills/onion-help/scripts/setup_wizard.py bootstrap
+# 然后编辑用户目录下 .onion-ad/.env，填入 LAOZHANG_API_KEY
 
 # 5. 出图上传前会压缩图片，使用 onion-image / onion-image-iterate 的成员需要 Pillow
 pip install Pillow
@@ -73,7 +73,7 @@ pip install Pillow
 
 ```
 你: 我选第二条，接下来帮我出图
-AI: [先触发 onion-router 判断“第二条”指方向、文案还是图；必要时追问，再转入对应 skill]
+AI: [先按 onion-using 判断“第二条”指方向、文案还是图；必要时追问，再转入对应 skill]
 
 你: 拍题精学的开学季方向，3 条
 AI: [触发 onion-direction skill，反问/出方向卡/迭代/写飞书 Base]
@@ -114,7 +114,7 @@ onion-toufang-plugin/
 ├── README.md                               ← 本文件
 ├── .env.template                           ← 配置模板（API key + 默认 Base token/TID）
 ├── skills/                                 ← 6 个独立 skill
-│   ├── onion-router/                       ← 总入口：只做分流，不做业务执行
+│   ├── onion-using/                        ← 使用协议 + 分诊规则：明确任务直达原子 skill
 │   │   ├── SKILL.md
 │   │   └── evals/
 │   ├── onion-direction/
@@ -127,7 +127,7 @@ onion-toufang-plugin/
 │   │   ├── SKILL.md
 │   │   ├── references/
 │   │   ├── scripts/{render.py, image_compress.py}
-│   │   ├── templates/image-selection.html
+│   │   ├── templates/{image-config.html, image-selection.html}
 │   │   └── assets/{ip-roles, logos, styles}
 │   └── onion-image-iterate/
 │       ├── SKILL.md
@@ -135,6 +135,7 @@ onion-toufang-plugin/
 └── shared/                                 ← 核心 skill 共用业务知识
     ├── base_schema.md                      ← 飞书 Base schema + 默认 token/TID
     ├── feedback_observation.md             ← 反馈观察 + subagent 任务模板
+    ├── references/input-envelope.md        ← 所有 skill 的统一输入/交接契约
     ├── knowledge/卖点库.md                  ← 洋葱 APP 卖点矩阵
     └── recipes/                            ← 出图 prompt 与 render 调度 recipe
 ```

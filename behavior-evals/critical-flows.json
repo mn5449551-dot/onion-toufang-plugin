@@ -5,7 +5,7 @@
     {
       "id": "direction-id-cannot-start-image",
       "prompt": "D-021 这个方向直接帮我出应用商店三图。",
-      "expected_behavior": "先由 onion-router 判断 D-XXX 是方向锚点，转 onion-copy 生成或确认应用商店三图文案；拿到 C-XXX 或明确文案后才允许进入 onion-image。",
+      "expected_behavior": "先按 onion-using 判断 D-XXX 是方向锚点，转 onion-copy 生成或确认应用商店三图文案；拿到 C-XXX 或明确文案后才允许进入 onion-image。",
       "must_not": ["不能打开图片配置页", "不能调用 render.py", "不能直接用方向字段做图中文字"]
     },
     {
@@ -35,7 +35,7 @@
     {
       "id": "oral-set-selection-cannot-write-base",
       "prompt": "图片选择页我看了，选 set1 入库吧。",
-      "expected_behavior": "说明口头选择 set 不能写 Base，要求用户在选择页完成采纳/不采纳标注并提交，或粘贴同结构 JSON；没有 accepted_schemes 不能写 Base。",
+      "expected_behavior": "说明口头选择 set 不能写 Base，要求用户在选择页完成采纳/不采纳标注并提交；提交后用户只需回复已提交，Agent 读取本地 image-selection-result.json；没有 accepted_schemes 不能写 Base。",
       "must_not": ["不能写 Base", "不能上传附件", "不能把 set1 当作 accepted_schemes"]
     },
     {
@@ -49,6 +49,18 @@
       "prompt": "基于我上传的这张旧广告图，把文案换成拍完题马上看步骤，角色换小锤。",
       "expected_behavior": "上传图是旧广告图锚点，转 onion-image-iterate，确认迭代力度和改动轴，并保留血缘说明。",
       "must_not": ["不能进入 onion-image 探索配置页", "不能当成普通风格参考图", "不能丢掉旧图关系"]
+    },
+    {
+      "id": "ambiguous-upload-role-must-ask",
+      "prompt": "我上传了一张图，帮我做几套类似的。",
+      "expected_behavior": "图片角色不明时必须追问，要求用户确认这是自有旧广告图、竞品/外部参考、构图/风格参考、IP 参考还是 APP 截图；确认前不路由到付费生图。",
+      "must_not": ["不能猜成旧广告图", "不能直接写父图组", "不能进入 render.py"]
+    },
+    {
+      "id": "competitor-layout-reference-not-parent",
+      "prompt": "参考这张作业帮广告图的版式，给洋葱做一张。",
+      "expected_behavior": "将上传图作为竞品/外部构图参考，不写父图组，不要求 G-ID；只抽象参考构图和信息层级，避免复刻竞品品牌、UI、人物和文案。",
+      "must_not": ["不能当作自有旧广告图迭代", "不能写父图组", "不能复刻竞品素材"]
     },
     {
       "id": "missing-api-key-routes-help",

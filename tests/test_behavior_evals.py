@@ -21,6 +21,8 @@ class BehaviorEvalManifestTests(unittest.TestCase):
             "oral-set-selection-cannot-write-base",
             "uploaded-app-screenshot-stays-new-image",
             "uploaded-old-ad-routes-iterate",
+            "ambiguous-upload-role-must-ask",
+            "competitor-layout-reference-not-parent",
             "missing-api-key-routes-help",
         }
         self.assertEqual(set(cases), required)
@@ -35,6 +37,8 @@ class BehaviorEvalManifestTests(unittest.TestCase):
         self.assertIn("先启动图片配置页", cases["image-must-open-config"]["expected_behavior"])
         self.assertIn("不能写 Base", cases["oral-set-selection-cannot-write-base"]["expected_behavior"])
         self.assertIn("onion-image-iterate", cases["uploaded-old-ad-routes-iterate"]["expected_behavior"])
+        self.assertIn("必须追问", cases["ambiguous-upload-role-must-ask"]["expected_behavior"])
+        self.assertIn("不写父图组", cases["competitor-layout-reference-not-parent"]["expected_behavior"])
 
 
 if __name__ == "__main__":

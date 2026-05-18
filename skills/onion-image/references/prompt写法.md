@@ -71,4 +71,4 @@ Use this checklist privately. Only summarize issues to the user if asked why.
 - IP：`skills/onion-image/assets/ip-roles/<slug>/<slug>-<stage>-<variant>-001.png`
 - Logo：`skills/onion-image/assets/logos/onion-logo-standard-001.png` 或 `onion-logo-app-001.png`
 - 字体：`skills/onion-image/assets/font-references/<参考名>.png`
-- base PNG：`/tmp/onion-ad/<request_id>/setN_img1.png`
+- base PNG：`<output-dir>/setN_img1.png`

@@ -14,13 +14,19 @@ Do not ask again for values already provided by the user or inherited from a tru
 
 Do not rely on modal popups as a product guarantee. In Codex / Claude Code default chat flows, a production Skill may not be able to force a Plan-mode style choice window. When no interactive picker is available, the fallback must still be clear: ask one short question and include explicit numbered or named options for every blocking choice. Avoid vague wording such as "给我配置一下" or "你想怎么做".
 
-For dense and reusable option sets, a skill may provide a local HTML interaction page instead of a native modal. The page must save a machine-readable JSON result in the work output directory, and the agent must read that JSON before continuing. For `onion-image`, the runtime sequence is mandatory for every paid image request once the copy/image anchor is known: open image config page, read `image-config-result.json`, render, build `image-selection.html`, then open the selection/annotation page in the same local service. Values already provided in chat can prefill or annotate the page, but cannot skip the config page. Long image batches should update `image-sets.json` through `/api/image-sets`; the page polls that endpoint and preserves existing annotations.
+For dense and reusable option sets, a skill may provide a local HTML interaction page instead of a native modal. The page must save a machine-readable JSON result in the work output directory, and the agent must read that JSON before continuing. For `onion-image`, the runtime sequence is mandatory for every paid image request once the copy/image anchor is known: open image config page, read `image-config-result.json`, render, build `image-selection.html`, then open the selection/annotation page in the same local service. Values already provided in chat can prefill or annotate the page, but cannot skip the config page. Long image batches should update `image-sets.json` through `/api/image-sets`; the page polls that endpoint and preserves existing annotations. Users should click save/submit in the page and then return to the agent with "好了" or "已提交"; do not require users to copy or paste raw JSON in the normal flow.
 
 For ambiguous selection intents, ask for the next action instead of guessing:
 
 - Direction selected: "已选方向 2。要入库后继续出文案，还是只入库？"
 - Multiple directions selected: "这两个方向都入库后，是分别出文案，还是只基于其中一个出？"
 - Copy selected: "已选文案 4。要入库、基于它出图，还是继续改文案？"
+
+For ambiguous uploaded images, ask before routing. 图片角色不明时必须追问；不要用图片内容、是否含中文文案、是否像洋葱素材来猜。Use a compact question such as:
+
+> 这张图是我们旧广告图要改，还是竞品/外部参考、构图/风格参考、IP 参考，或 APP 截图？
+
+If the answer affects paid rendering, parent group, Base write, or prompt reference labels, do not continue until the role is clear.
 
 ## Async Feedback
 

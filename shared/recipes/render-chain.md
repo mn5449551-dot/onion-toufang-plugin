@@ -32,7 +32,7 @@ On success, stdout is JSON:
 ```json
 {
   "valid": true,
-  "filepath": "/tmp/onion-ad/request/set1_img1.png",
+  "filepath": "<output-dir>/set1_img1.png",
   "size_label": "1568x672",
   "size": "1568x672",
   "aspect_ratio": "custom",

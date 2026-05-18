@@ -3,8 +3,8 @@
 Package accepted image schemes from image-selection-result.json into one zip.
 
 The zip is a local delivery artifact for operators. It contains only accepted
-schemes, with compressed JPGs by default, plus a manifest.json that records the
-source paths and metadata used to build the package.
+scheme images, with compressed JPGs by default. A manifest JSON is written next
+to the zip for traceability, not inside the operator-facing zip.
 """
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 import zipfile
@@ -21,6 +22,7 @@ from typing import Any
 SCRIPT_DIR = Path(__file__).resolve().parent
 IMAGE_COMPRESS_SCRIPT = SCRIPT_DIR / "image_compress.py"
 DEFAULT_TARGET_KB = 200
+SAFE_COMPONENT_PATTERN = re.compile(r"[^A-Za-z0-9._-]+")
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -83,7 +85,7 @@ def scheme_export_config(scheme: dict[str, Any], default_target_kb: int) -> dict
 def compressed_path_for(source: Path, cache_dir: Path, set_id: str, target_kb: int, target_width: int | None = None, target_height: int | None = None) -> Path:
     cache_dir.mkdir(parents=True, exist_ok=True)
     size_suffix = f".{target_width}x{target_height}" if target_width and target_height else ""
-    return cache_dir / f"{set_id}-{source.stem}{size_suffix}.compressed-{target_kb}kb.jpg"
+    return cache_dir / f"{safe_component(set_id, 'set')}-{safe_component(source.stem, 'image')}{size_suffix}.compressed-{target_kb}kb.jpg"
 
 
 def compress_image(source: Path, output: Path, target_kb: int, target_width: int | None = None, target_height: int | None = None) -> None:
@@ -106,6 +108,38 @@ def compress_image(source: Path, output: Path, target_kb: int, target_width: int
         raise RuntimeError((result.stderr or result.stdout or "image compression failed").strip())
 
 
+def safe_component(value: Any, fallback: str) -> str:
+    text = str(value or "").strip().lower()
+    text = SAFE_COMPONENT_PATTERN.sub("-", text)
+    text = re.sub(r"-{2,}", "-", text).strip("-._")
+    return text or fallback
+
+
+def archive_dir_name(position: int, set_id: str) -> str:
+    return f"set{position:02d}_{safe_component(set_id, f'set{position:02d}')}"
+
+
+def archive_file_name(
+    set_position: int,
+    image_index: int,
+    suffix: str,
+    target_kb: int | None = None,
+    target_width: int | None = None,
+    target_height: int | None = None,
+) -> str:
+    parts = [f"set{set_position:02d}", f"img{image_index:02d}"]
+    if target_width and target_height:
+        parts.append(f"{target_width}x{target_height}")
+    if target_kb:
+        parts.append(f"{target_kb}kb")
+    normalized_suffix = suffix.lower() or ".jpg"
+    return "_".join(parts) + normalized_suffix
+
+
+def manifest_path_for(output: Path) -> Path:
+    return output.with_name(f"{output.stem}-manifest.json")
+
+
 def package_accepted_images(
     selection_result: Path,
     output: Path | None = None,
@@ -123,9 +157,11 @@ def package_accepted_images(
     output = output.expanduser().resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     cache_dir = output.parent / "accepted-package-assets"
+    manifest_path = manifest_path_for(output)
 
     package_manifest: dict[str, Any] = {
         "request_id": request_id,
+        "zip": str(output),
         "target_kb": target_kb if compress else None,
         "compressed": compress,
         "accepted_count": len(accepted),
@@ -135,6 +171,7 @@ def package_accepted_images(
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for position, scheme in enumerate(accepted, start=1):
             set_id = str(scheme.get("set_id") or scheme.get("id") or f"set{position}")
+            archive_dir = archive_dir_name(position, set_id)
             export = scheme_export_config(scheme, target_kb)
             scheme_target_kb = int(export["target_kb"] or target_kb)
             target_width = export["target_width"]
@@ -153,7 +190,7 @@ def package_accepted_images(
                         compress_image(source, packaged, scheme_target_kb, target_width, target_height)
                 else:
                     packaged = source
-                arcname = f"{set_id}/img{image_index}{packaged.suffix.lower()}"
+                arcname = f"{archive_dir}/{archive_file_name(position, image_index, packaged.suffix, scheme_target_kb if compress else None, target_width, target_height)}"
                 archive.write(packaged, arcname)
                 scheme_entry["files"].append(
                     {
@@ -164,11 +201,12 @@ def package_accepted_images(
                     }
                 )
             package_manifest["schemes"].append(scheme_entry)
-        archive.writestr("manifest.json", json.dumps(package_manifest, ensure_ascii=False, indent=2))
+    manifest_path.write_text(json.dumps(package_manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
     return {
         "ok": True,
         "zip": str(output),
+        "manifest_path": str(manifest_path),
         "accepted_count": len(accepted),
         "compressed": compress,
         "target_kb": target_kb if compress else None,

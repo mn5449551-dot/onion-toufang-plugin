@@ -84,6 +84,7 @@ class InteractiveServerTests(unittest.TestCase):
         self.assertIn("category-tabs", html)
         self.assertIn("selectedSlotIds", html)
         self.assertIn("toggleSlot", html)
+        self.assertIn("请先选择至少一个版位", html)
         self.assertIn("target_size", html)
         self.assertIn("render_size", html)
         self.assertIn("disabled_reason", html)
@@ -96,8 +97,31 @@ class InteractiveServerTests(unittest.TestCase):
         self.assertIn("手机、学习机或其它电子屏幕", html)
         self.assertIn("保存后请回到 Codex 上传截图", html)
         self.assertIn("generation_mode", html)
+        self.assertIn("保存配置", html)
+        self.assertIn("回到 Codex 回复：好了", html)
+        self.assertNotIn("复制 JSON", html)
+        self.assertNotIn("copyResult", html)
         self.assertNotIn("__DATA_JSON__", html)
         self.assertNotIn("{{", html)
+
+    def test_config_html_uses_external_template_file(self):
+        template_path = PLUGIN_ROOT / "skills" / "onion-image" / "templates" / "image-config.html"
+
+        self.assertTrue(template_path.exists())
+        template = template_path.read_text(encoding="utf-8")
+        self.assertIn("__REQUEST_ID__", template)
+        self.assertIn("__DATA_JSON__", template)
+        self.assertIn("/api/image-config", template)
+        self.assertIn("DATA.desiredChannels", template)
+        self.assertNotIn("复制 JSON", template)
+        self.assertNotIn("copyResult", template)
+        self.assertNotIn("first) state.selectedSlotIds", template)
+
+        html = self.server.build_config_html(self.server.build_config_payload("req-test"))
+
+        self.assertNotIn("__REQUEST_ID__", html)
+        self.assertNotIn("__DATA_JSON__", html)
+        self.assertIn("Request req-test", html)
 
     def test_post_writes_image_config_selection_and_live_sets_json(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -114,6 +138,8 @@ class InteractiveServerTests(unittest.TestCase):
             thread = threading.Thread(target=httpd.serve_forever, daemon=True)
             thread.start()
             try:
+                slot_id = next(slot["id"] for slot in self.server.load_platform_slots() if slot.get("enabled"))
+
                 def post(endpoint, payload):
                     url = f"http://127.0.0.1:{httpd.server_port}{endpoint}"
                     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -121,7 +147,7 @@ class InteractiveServerTests(unittest.TestCase):
                     with request.urlopen(req, timeout=5) as response:
                         return json.loads(response.read().decode("utf-8"))
 
-                config_payload = post("/api/image-config", {"request_id": "req-test", "sets": 2})
+                config_payload = post("/api/image-config", {"request_id": "req-test", "sets": 2, "placement_ids": [slot_id]})
                 selection_payload = post("/api/image-selection", {"request_id": "req-test", "schemes": []})
                 sets_payload = post(
                     "/api/image-sets",
@@ -154,12 +180,21 @@ class InteractiveServerTests(unittest.TestCase):
             self.assertEqual(live_sets_payload["sets"][0]["thumb"], ["set1_img1.png"])
             self.assertEqual(logo_status, 200)
 
+    def test_config_result_requires_explicit_placement_selection(self):
+        slots = self.server.load_platform_slots()
+        by_id = {slot["id"]: slot for slot in slots}
+
+        with self.assertRaisesRegex(ValueError, "select at least one enabled placement"):
+            self.server.normalize_config_result({"request_id": "req-test", "sets": 2}, by_id)
+
     def test_ui_reference_required_is_persisted_as_blocking_codex_upload(self):
         slots = self.server.load_platform_slots()
         by_id = {slot["id"]: slot for slot in slots}
+        slot_id = next(slot["id"] for slot in slots if slot.get("enabled"))
         result = self.server.normalize_config_result(
             {
                 "request_id": "req-test",
+                "placement_ids": [slot_id],
                 "screen_ui_reference_required": True,
                 "ui_reference_upload_status": "awaiting_codex_upload",
             },
@@ -173,6 +208,50 @@ class InteractiveServerTests(unittest.TestCase):
         self.assertEqual(result["ui_reference"], "codex_upload_required")
         self.assertIn("上传截图", result["ui_reference_next_action"])
         self.assertIn("弱化/模糊屏幕", result["ui_reference_next_action"])
+
+    def test_iterate_config_mode_preserves_iteration_contract(self):
+        payload = self.server.build_config_payload(
+            "req-iterate",
+            context={
+                "generation_mode": "iterate",
+                "image_group_id": "G-005",
+                "image_form": "三图",
+            },
+        )
+        html = self.server.build_config_html(payload)
+        slots = self.server.load_platform_slots()
+        by_id = {slot["id"]: slot for slot in slots}
+        slot_id = next(slot["id"] for slot in slots if slot.get("enabled"))
+
+        result = self.server.normalize_config_result(
+            {
+                "request_id": "req-iterate",
+                "generation_mode": "iterate",
+                "iteration_mode": "expand_similar",
+                "base": {
+                    "source": "base_group",
+                    "image_group_id": "G-005",
+                    "image_form": "三图",
+                    "image_count": 3,
+                },
+                "uploaded_image_role": "owned_old_ad",
+                "inherit": {"placement": True, "image_form": True},
+                "change_axes": ["ip", "scene"],
+                "per_image_notes": {"image_1": "保留开头钩子"},
+                "placement_ids": [slot_id],
+            },
+            by_id,
+        )
+
+        self.assertEqual(payload["generationMode"], "iterate")
+        self.assertIn("图片迭代配置", html)
+        self.assertIn("iteration_mode", html)
+        self.assertEqual(result["generation_mode"], "iterate")
+        self.assertEqual(result["iteration_mode"], "expand_similar")
+        self.assertEqual(result["base"]["image_group_id"], "G-005")
+        self.assertEqual(result["uploaded_image_role"], "owned_old_ad")
+        self.assertEqual(result["iteration"]["change_axes"], ["ip", "scene"])
+        self.assertTrue(result["iteration"]["inherit"]["placement"])
 
     def test_default_rules_include_latest_directness_and_disabled_slots(self):
         slots = self.server.load_platform_slots()
@@ -210,6 +289,67 @@ class InteractiveServerTests(unittest.TestCase):
         self.assertEqual(triple_payload["desiredImageForm"], "三图")
         self.assertFalse(triple_by_id["oppo-rich-horizontal-big-1280x720"]["enabled"])
         self.assertTrue(triple_by_id["oppo-app-slot-slot-320x210"]["enabled"])
+
+    def test_copy_text_fields_infer_exact_image_form(self):
+        single_payload = self.server.build_config_payload(
+            "req-single",
+            context={"主标题": "拍一下，先看答案", "副标题": "洋葱逐步讲解，哪步不懂问哪步"},
+        )
+        double_payload = self.server.build_config_payload(
+            "req-double",
+            context={"短句1": "拍题秒出解析", "短句2": "不懂继续追问"},
+        )
+        triple_payload = self.server.build_config_payload(
+            "req-triple",
+            context={"短句1": "拍一下", "短句2": "看步骤", "短句3": "继续问"},
+        )
+
+        self.assertEqual(single_payload["desiredImageForm"], "单图")
+        self.assertEqual(double_payload["desiredImageForm"], "双图")
+        self.assertEqual(triple_payload["desiredImageForm"], "三图")
+
+    def test_context_channel_temporarily_disables_other_categories(self):
+        feed_payload = self.server.build_config_payload("req-feed", context={"渠道": "信息流"})
+        feed_by_id = {slot["id"]: slot for slot in feed_payload["slots"]}
+
+        self.assertEqual(feed_payload["desiredChannels"], ["信息流"])
+        self.assertTrue(feed_by_id["netease-feed-slot-slot-1280x720"]["enabled"])
+        self.assertFalse(feed_by_id["oppo-rich-horizontal-big-1280x720"]["enabled"])
+        self.assertIn("本次渠道为信息流", feed_by_id["oppo-rich-horizontal-big-1280x720"]["disabled_reason"])
+
+        learning_payload = self.server.build_config_payload("req-learning", context={"channel": "learning_device"})
+        learning_by_id = {slot["id"]: slot for slot in learning_payload["slots"]}
+
+        self.assertEqual(learning_payload["desiredChannels"], ["学习机"])
+        self.assertTrue(learning_by_id["readboy-learning-slot-banner-484x580"]["enabled"])
+        self.assertFalse(learning_by_id["netease-feed-slot-slot-1280x720"]["enabled"])
+
+    def test_raw_brief_can_lock_channel_and_image_form(self):
+        payload = self.server.build_config_payload("req-brief", context={"brief": "应用商店双图，帮我做两套"})
+        by_id = {slot["id"]: slot for slot in payload["slots"]}
+
+        self.assertEqual(payload["desiredChannels"], ["应用商店"])
+        self.assertEqual(payload["desiredImageForm"], "双图")
+        self.assertTrue(by_id["oppo-app-slot-slot-474x768"]["enabled"])
+        self.assertFalse(by_id["oppo-rich-horizontal-big-1280x720"]["enabled"])
+        self.assertFalse(by_id["netease-feed-slot-slot-1280x720"]["enabled"])
+
+    def test_config_result_rejects_slots_mismatched_with_context(self):
+        slots = self.server.constrained_slots_for_context(context={"渠道": "信息流", "图片形式": "单图"})
+        by_id = {slot["id"]: slot for slot in slots}
+
+        result = self.server.normalize_config_result(
+            {"request_id": "req-test", "placement_ids": ["netease-feed-slot-slot-1280x720"]},
+            by_id,
+        )
+        self.assertEqual(result["channel"], "信息流")
+        self.assertEqual(result["image_form"], "单图")
+
+        with self.assertRaisesRegex(ValueError, "placement is disabled"):
+            self.server.normalize_config_result(
+                {"request_id": "req-test", "placement_ids": ["oppo-rich-horizontal-big-1280x720"]},
+                by_id,
+            )
 
     def test_normalizes_selected_multi_placements_for_config_result(self):
         slots = self.server.load_platform_slots()

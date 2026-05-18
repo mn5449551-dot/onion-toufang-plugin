@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import base_ops
+from runtime_paths import output_root
 from write_record import build_lark_payload
 
 
@@ -121,7 +122,7 @@ def apply_compression_plan(plan: List[Dict[str, Any]]) -> None:
 def run_best_effort_cleanup() -> Dict[str, Any]:
     if os.environ.get("ONION_AD_DISABLE_CLEANUP") == "1":
         return {"ok": True, "skipped": True, "reason": "ONION_AD_DISABLE_CLEANUP=1"}
-    root = os.environ.get("ONION_AD_OUTPUT_ROOT", "/tmp/onion-ad")
+    root = str(output_root())
     retention = os.environ.get("ONION_AD_ORIGINAL_RETENTION_DAYS", "7")
     result = subprocess.run(
         [
@@ -184,7 +185,9 @@ def build_record_fields(
         fields["关联文案"] = [copy_id]
     if parent_group_id:
         fields["父图组"] = [parent_group_id]
-    fields.update(metadata)
+    for key, value in metadata.items():
+        if key not in fields:
+            fields[key] = value
     fields.setdefault("状态", "待用")
     for image in sorted(images, key=lambda item: int(item["index"])):
         prompt = image.get("prompt")
@@ -233,6 +236,7 @@ def main(argv: List[str] | None = None) -> int:
     parser.add_argument("--parent-group-id")
     parser.add_argument("--images", required=True, help='JSON array of paths or objects: ["/tmp/a.png"] or [{"index": 1, "path": "...", "prompt": "..."}]')
     parser.add_argument("--metadata", required=True, help="JSON object with image group metadata fields")
+    parser.add_argument("--package-zip", help="Local accepted-images zip path created before Base write")
     parser.add_argument("--target-kb", type=int, help="Default compressed image target size in KB; metadata 目标KB and per-image target_kb can also set it")
     parser.add_argument("--no-compress", action="store_true", help="Upload original image files instead of compressed JPGs")
     parser.add_argument("--write-result", help="Path to write a completion marker JSON after successful record and attachment upload")
@@ -252,6 +256,7 @@ def main(argv: List[str] | None = None) -> int:
         record_payload = build_lark_payload([{"fields": record_fields}])
         compression_plan = build_compression_plan(images, default_target_kb, not args.no_compress)
         attachments = build_attachments_from_images(images, compression_plan)
+        package_zip = str(Path(args.package_zip).expanduser().resolve()) if args.package_zip else None
         base_payload = {
             "base_token": base_ops.base_token(args.base_token),
             "table_id": args.table_id,
@@ -270,6 +275,7 @@ def main(argv: List[str] | None = None) -> int:
                         "record_payload": record_payload,
                         "attachments": attachments,
                         "compression": compression_plan,
+                        "package_zip": package_zip,
                     },
                     ensure_ascii=False,
                 )
@@ -317,6 +323,7 @@ def main(argv: List[str] | None = None) -> int:
             "direction_id": args.direction_id,
             "copy_id": args.copy_id,
             "parent_group_id": parent_group_id,
+            "package_zip": package_zip,
             "attachments": attachment_results,
             "cleanup": cleanup_result,
         }

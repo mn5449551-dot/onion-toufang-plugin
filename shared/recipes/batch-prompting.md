@@ -35,6 +35,7 @@ Maintain a compact private ledger while batching:
 ```json
 {
   "used_ips": {"豆包": 2, "上官": 1},
+  "used_styles": {"高质量动漫插画": 2, "毛毡手作": 1},
   "used_scenes": {"晚间书桌": 2, "教室课间": 1},
   "used_cameras": {"近景侧拍": 2, "俯拍": 1},
   "used_layouts": {"上方大标题": 2, "左右分栏": 1},
@@ -49,6 +50,7 @@ Use the ledger to avoid accidental sameness across batches.
 Change at least two axes between any two sets:
 
 - IP: 豆包、上官、小锤（王小锤）、雷婷、豆花（田豆花）、狗蛋（李狗蛋/李狗蛋儿）、不用 IP.
+- Style: 有 IP 时优先统一高质量动漫插画 / 半写实动漫广告风格；无 IP 时随机探索毛毡手作、半写实广告插画、写实广告合成感、扁平矢量插画、赛璐珞动漫、软萌 3D 卡通、高质量家庭动画电影感、纸雕/剪纸层叠、黏土/软陶质感、水彩插画、粉笔黑板手绘、轻拟物 UI 插画等。不要写第三方品牌风格名.
 - Scene: 晚间书桌、教室课间、周末客厅、考前复习桌、学习机屏幕前、错题订正现场.
 - Camera: 近景、俯拍、侧拍、第一人称、分屏、低机位.
 - Action: 拍题、点步骤、看解析、订正错题、规划复习、预习新知.
@@ -56,6 +58,8 @@ Change at least two axes between any two sets:
 - Layout: 上方大标题、左右分栏、中心大字、屏幕卡片式、三段递进、标题环绕主体.
 
 If the user locks an axis, such as `IP=豆包`, do not vary that axis. Increase diversity on scene, camera, action, metaphor, and layout instead.
+
+If the user chooses `IP=不用` or the copy is better as a text-led functional ad, vary Style deliberately across sets. Do not make every no-IP image the same generic blue tech ad.
 
 ## Quality Gate
 
@@ -66,6 +70,7 @@ Before rendering a batch, check every set:
 - It is not a near-duplicate of earlier batches.
 - On-image text is exactly the copy fields for that image index.
 - IP/Logo/font/reference paths match the prompt wording.
+- No-IP prompts have a deliberate style choice, and that style is not a third-party brand/style name.
 - Strong emotion, promise words, and device/brand risks are absent.
 - For double/triple sets, image 1 establishes the world and branches only change the current beat.
 

@@ -1,7 +1,7 @@
 {
   "name": "onion-toufang",
   "version": "1.1.0",
-  "description": "洋葱学园 APP 投放素材生成：方向、文案、图片、图组迭代和飞书 Base 入库。",
+  "description": "洋葱学园 APP 投放素材生成：入口协议、歧义分诊、方向、文案、图片、图组迭代和飞书 Base 入库。",
   "author": {
     "name": "洋葱学园投放团队"
   },

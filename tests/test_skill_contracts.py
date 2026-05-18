@@ -53,7 +53,36 @@ class SkillContractTests(unittest.TestCase):
         text = (PLUGIN_ROOT / "shared" / "base_schema.md").read_text(encoding="utf-8")
 
         self.assertIn("## 表 2：`copies`（文案，14 字段）", text)
+        self.assertIn("飞书 auto_number 是字段级递增计数", text)
         self.assertNotIn("下次启动 skill 自动补", text)
+
+    def test_direction_selling_points_base_field_is_text_not_select(self):
+        schema = (PLUGIN_ROOT / "shared" / "base_schema.md").read_text(encoding="utf-8")
+        direction_rules = (PLUGIN_ROOT / "skills" / "onion-direction" / "references" / "字段与生成规则.md").read_text(encoding="utf-8")
+        knowledge = (PLUGIN_ROOT / "shared" / "knowledge" / "卖点库.md").read_text(encoding="utf-8")
+        skill = (PLUGIN_ROOT / "skills" / "onion-direction" / "SKILL.md").read_text(encoding="utf-8")
+
+        self.assertIn("| `卖点` | text | ✅ |", schema)
+        self.assertIn("写入 Base 时传文本", schema)
+        self.assertIn('"识别准确；AI+名师校准"', schema)
+        self.assertNotIn("| `卖点` | select 多 |", schema)
+        self.assertNotIn('["识别准确", "AI+名师校准"]', schema)
+
+        self.assertIn("| 卖点 | 文本", direction_rules)
+        self.assertIn("不要传数组", direction_rules)
+        self.assertIn("卖点` 是文本字段", knowledge)
+        self.assertIn("Base 的 `卖点` 字段是 text", skill)
+
+    def test_image_group_dynamic_fields_are_text_for_current_plugin(self):
+        schema = (PLUGIN_ROOT / "shared" / "base_schema.md").read_text(encoding="utf-8")
+        visual = (PLUGIN_ROOT / "skills" / "onion-image" / "references" / "视觉元素规范.md").read_text(encoding="utf-8")
+
+        self.assertIn("| `版位` | text |", schema)
+        self.assertIn("| `比例` | text |", schema)
+        self.assertIn("| `IP形象` | text |", schema)
+        self.assertIn("不要做成固定选项", schema)
+        self.assertIn("Base 的 `IP形象` 是文本字段", visual)
+        self.assertIn("不要依赖固定选项", visual)
 
     def test_referenced_shared_scripts_exist(self):
         missing = []
@@ -86,12 +115,14 @@ class SkillContractTests(unittest.TestCase):
         self.assertEqual(manifest["skills"], "./skills/")
         self.assertNotIn("<", json.dumps(manifest, ensure_ascii=False))
 
-    def test_router_skill_defines_top_level_dispatch_rules(self):
-        text = (PLUGIN_ROOT / "skills" / "onion-router" / "SKILL.md").read_text(encoding="utf-8")
-        evals = json.loads((PLUGIN_ROOT / "skills" / "onion-router" / "evals" / "evals.json").read_text(encoding="utf-8"))
+    def test_using_skill_defines_top_level_dispatch_rules_without_router_skill(self):
+        text = (PLUGIN_ROOT / "skills" / "onion-using" / "SKILL.md").read_text(encoding="utf-8")
+        evals = json.loads((PLUGIN_ROOT / "skills" / "onion-using" / "evals" / "evals.json").read_text(encoding="utf-8"))
         readme = (PLUGIN_ROOT / "README.md").read_text(encoding="utf-8")
 
-        self.assertIn("只负责分流", text)
+        self.assertFalse((PLUGIN_ROOT / "skills" / "onion-router").exists())
+        self.assertIn("使用协议", text)
+        self.assertIn("分诊规则", text)
         self.assertIn("不生成方向、不写文案、不生图、不写 Base", text)
         self.assertIn("D-XXX", text)
         self.assertIn("C-XXX", text)
@@ -102,7 +133,7 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("APP 截图、风格参考图或 IP 参考图", text)
         self.assertIn("口头选择 set", text)
         self.assertIn("onion-help", text)
-        self.assertIn("onion-router", readme)
+        self.assertNotIn("onion-router", readme)
 
         cases = {item["name"]: item["expected_output"] for item in evals["evals"]}
         self.assertIn("D-XXX 不能直接出图", cases["direction-id-image-request-routes-to-copy"])
@@ -110,11 +141,54 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("onion-image-iterate", cases["uploaded-old-ad-routes-to-iterate"])
         self.assertIn("不能口头选择 set", cases["oral-image-selection-routes-to-selection-page-result"])
 
+    def test_superpowers_style_bootstrap_and_router_scope_are_explicit(self):
+        using_path = PLUGIN_ROOT / "skills" / "onion-using" / "SKILL.md"
+        self.assertTrue(using_path.exists())
+        using = using_path.read_text(encoding="utf-8")
+        readme = (PLUGIN_ROOT / "README.md").read_text(encoding="utf-8")
+        claude_marketplace = json.loads((PLUGIN_ROOT / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8"))
+
+        self.assertIn("不是中心业务执行器", using)
+        self.assertIn("明确任务直接进入对应原子 skill", using)
+        self.assertIn("歧义、跨边界、D/C/G ID、上传图用途不明、选择第 N 条", using)
+        self.assertIn("每个原子 skill 必须能独立整理 Input Envelope", using)
+        self.assertIn("onion-using", readme)
+        self.assertIn("skills/onion-using", claude_marketplace["plugins"][0]["skills"])
+        self.assertNotIn("skills/onion-router", claude_marketplace["plugins"][0]["skills"])
+
+        for skill_name in ("onion-direction", "onion-copy", "onion-image", "onion-image-iterate"):
+            text = (PLUGIN_ROOT / "skills" / skill_name / "SKILL.md").read_text(encoding="utf-8")
+            self.assertIn("入口门禁", text, skill_name)
+            self.assertIn("越界", text, skill_name)
+
+    def test_all_skills_use_shared_input_envelope_contract(self):
+        envelope = (PLUGIN_ROOT / "shared" / "references" / "input-envelope.md").read_text(encoding="utf-8")
+        readme = (PLUGIN_ROOT / "README.md").read_text(encoding="utf-8")
+
+        self.assertIn("不是让用户填写的表单", envelope)
+        self.assertIn("凡是会影响工具调用、Base 写入、HTML 页面、生图 API 或下游 skill 的字段必须结构化", envelope)
+        self.assertIn('"stage_source": "user|time_inferred|default"', envelope)
+        self.assertIn("`business.stage` 仍要结构化，但不是 `onion-direction` 的用户必填项", envelope)
+        self.assertIn("可以保留为非结构化原料", envelope)
+        self.assertIn("每个 skill 只校验自己负责的切片", envelope)
+        self.assertIn("交接契约", envelope)
+        self.assertIn("统一 Input Envelope", readme)
+
+        for skill_path in (PLUGIN_ROOT / "skills").glob("*/SKILL.md"):
+            text = skill_path.read_text(encoding="utf-8")
+            self.assertIn("../../shared/references/input-envelope.md", text, skill_path)
+
     def test_direction_selection_and_stage_contracts_are_explicit(self):
         text = (PLUGIN_ROOT / "skills" / "onion-direction" / "SKILL.md").read_text(encoding="utf-8")
         evals = json.loads((PLUGIN_ROOT / "skills" / "onion-direction" / "evals" / "evals.json").read_text(encoding="utf-8"))
 
+        self.assertIn("关键输入", text)
+        self.assertIn("功能 + 卖点", text)
+        self.assertIn("缺 `适配阶段` 不反问", text)
+        self.assertIn("按当前日期推断", text)
         self.assertIn("候选方向展示时必须显式显示 `适配阶段`", text)
+        self.assertIn("不能写省略号", text)
+        self.assertIn("不能写“同上”", text)
         self.assertIn("选择第 N 条 / 方向一 / 就用这个", text)
         self.assertIn("先只把被选中的方向写入 Base", text)
         self.assertIn("入库后必须问下一步", text)
@@ -125,6 +199,9 @@ class SkillContractTests(unittest.TestCase):
         update_eval = next(item for item in evals["evals"] if item["name"] == "direction-id-edit-creates-new-version")
         self.assertIn("创建一条新版方向", update_eval["expected_output"])
         self.assertIn("不覆盖 D-007 原记录", update_eval["expected_output"])
+        missing_eval = next(item for item in evals["evals"] if item["name"] == "direction-missing-required-inputs")
+        self.assertIn("只问功能和卖点", missing_eval["expected_output"])
+        self.assertNotIn("只问功能和适配阶段", missing_eval["expected_output"])
 
     def test_copy_missing_channel_and_form_must_ask(self):
         text = (PLUGIN_ROOT / "skills" / "onion-copy" / "SKILL.md").read_text(encoding="utf-8")
@@ -138,9 +215,42 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("默认创建新版", text)
         self.assertIn("不覆盖原文案", text)
         self.assertIn("明确说废弃原文案", text)
+        self.assertIn("文案类型/角度", text)
+        self.assertIn("不在用户候选回复里展示", text)
         update_eval = next(item for item in evals["evals"] if item["name"] == "copy-id-edit-creates-new-version")
         self.assertIn("创建一条新版文案", update_eval["expected_output"])
         self.assertIn("不覆盖 C-012 原记录", update_eval["expected_output"])
+
+    def test_candidate_response_format_contracts_are_explicit(self):
+        text = (PLUGIN_ROOT / "shared" / "references" / "response-format.md").read_text(encoding="utf-8")
+
+        self.assertIn("方向候选固定排版", text)
+        self.assertIn("1 能解决用户在“具体哪个场景里的哪个问题”", text)
+        self.assertIn("2 能带来什么不一样的“一听很惊艳”的解法？", text)
+        self.assertIn("3 因此带来了哪个场景下的什么“奇效”？", text)
+        self.assertIn("不能写省略号", text)
+        self.assertIn("不能写“同上”", text)
+        self.assertIn("文案候选固定排版", text)
+        self.assertIn("主标题：", text)
+        self.assertIn("短句3：", text)
+        self.assertNotIn("推荐用图", text)
+        copy_section = text.split("## 文案候选固定排版", 1)[1]
+        self.assertNotIn("角度：", copy_section)
+
+    def test_execution_policy_splits_fast_gate_and_creative_paths(self):
+        text = (PLUGIN_ROOT / "shared" / "references" / "execution-policy.md").read_text(encoding="utf-8")
+
+        self.assertIn("Fast Path", text)
+        self.assertIn("Gate Path", text)
+        self.assertIn("Creative Path", text)
+        self.assertIn("ID 回查、环境检查、状态查询、压缩、打包、Base 写入", text)
+        self.assertIn("缺功能/卖点", text)
+        self.assertIn("图片角色不明", text)
+        self.assertIn("方向生成、文案生成、图片 prompt 生成、批量多样性设计", text)
+
+        for skill_name in ("onion-direction", "onion-copy", "onion-image", "onion-image-iterate"):
+            skill = (PLUGIN_ROOT / "skills" / skill_name / "SKILL.md").read_text(encoding="utf-8")
+            self.assertIn("../../shared/references/execution-policy.md", skill, skill_name)
 
     def test_copy_quality_guardrails_include_real_bad_phrases(self):
         fields = (PLUGIN_ROOT / "skills" / "onion-copy" / "references" / "字段定义-文案.md").read_text(encoding="utf-8")
@@ -163,6 +273,7 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("assets/asset-manifest.json", text)
         self.assertIn("scripts/build_selection_page.py", text)
         self.assertIn("scripts/interactive_server.py", text)
+        self.assertIn("templates/image-config.html", text)
         self.assertIn("scripts/image_workflow.py", text)
         self.assertIn("status --request-id", text)
         self.assertIn("needs_config", text)
@@ -201,9 +312,19 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("唯一允许写入飞书", text)
         self.assertIn("不要让用户在聊天里回复“选 set1 / 选 set2 / 选第 N 套”", text)
         self.assertIn("优先读取 `image-selection-result.json`", text)
-        self.assertIn("页面复制出的同结构 JSON", text)
+        self.assertIn("提交后告诉我已提交", text)
+        self.assertIn("不要让用户粘贴 JSON", text)
+        self.assertNotIn("页面复制出的同结构 JSON", text)
         self.assertIn("请在页面完成标注并点击提交", text)
         self.assertIn("scripts/package_accepted_images.py", text)
+        self.assertIn("scripts/write_selection_feedback.py", text)
+        self.assertIn("固定规则 / 主观评价", text)
+        self.assertIn("feedbacks", text)
+        self.assertIn("最终回复必须包含", text)
+        self.assertIn("本地图片包路径", text)
+        self.assertIn("可点击 Markdown 本地文件链接", text)
+        self.assertIn("打开交付目录", text)
+        self.assertIn("package_zip", text)
         self.assertIn("scripts/cleanup_image_outputs.py", text)
         self.assertIn("超过 7 天的原始 PNG", text)
         self.assertIn("先配置页，后标注/选择页", text)
@@ -250,6 +371,7 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("--write-result", iterate)
         self.assertIn("package_accepted_images.py", iterate)
         self.assertIn("父图组", iterate)
+        self.assertIn("打开本地交付包", iterate)
         self.assertIn("方向 ID 不能直接跳到图", readme)
         self.assertIn("方向：生成候选 → 用户确认 → 入库", readme)
         self.assertIn("迭代图：确认旧图和改动轴 → 生图 → 选择页标注 → 采纳图入库", readme)
@@ -280,6 +402,42 @@ class SkillContractTests(unittest.TestCase):
         self.assertNotIn("双图 / 三图 / 组图：后续", size_doc)
         self.assertNotIn("双图 / 三图 / 组图 | 一期置灰", export_doc)
 
+    def test_image_iteration_asks_when_upload_role_or_intent_is_unclear(self):
+        using = (PLUGIN_ROOT / "skills" / "onion-using" / "SKILL.md").read_text(encoding="utf-8")
+        image = (PLUGIN_ROOT / "skills" / "onion-image" / "SKILL.md").read_text(encoding="utf-8")
+        iterate = (PLUGIN_ROOT / "skills" / "onion-image-iterate" / "SKILL.md").read_text(encoding="utf-8")
+        envelope = (PLUGIN_ROOT / "shared" / "references" / "input-envelope.md").read_text(encoding="utf-8")
+        runtime = (PLUGIN_ROOT / "shared" / "references" / "runtime-adapters.md").read_text(encoding="utf-8")
+        iterate_evals = json.loads((PLUGIN_ROOT / "skills" / "onion-image-iterate" / "evals" / "evals.json").read_text(encoding="utf-8"))
+        critical = json.loads((PLUGIN_ROOT / "behavior-evals" / "critical-flows.json").read_text(encoding="utf-8"))
+
+        self.assertIn("正确优先于少问", using)
+        self.assertIn("有一点不清楚就追问", using)
+        self.assertIn("uploaded_image_role", envelope)
+        self.assertIn("owned_old_ad|competitor_reference|layout_reference|style_reference|ip_reference|screen_ui_reference|unknown", envelope)
+        self.assertIn("图片角色不明时必须追问", runtime)
+        self.assertIn("不要靠是否有文案判断", image)
+        self.assertIn("竞品/外部参考图", image)
+        self.assertIn("不写 `父图组`", image)
+
+        self.assertIn("继承型配置卡", iterate)
+        self.assertIn("小改一下 / 同类多来几套 / 换形式重做", iterate)
+        self.assertIn("一套图只有一份主配置", iterate)
+        self.assertIn("传三张图不等于三份配置", iterate)
+        self.assertIn("竞品/外部参考图不能当父图组", iterate)
+        self.assertIn("generation_mode=iterate", iterate)
+        self.assertIn("iteration_mode=tweak|expand_similar|reframe", iterate)
+
+        eval_names = {item["name"]: item for item in iterate_evals["evals"]}
+        self.assertIn("ambiguous-upload-role-asks-before-routing", eval_names)
+        self.assertIn("competitor-reference-does-not-write-parent-group", eval_names)
+        self.assertIn("three-image-set-expands-with-one-main-config", eval_names)
+        self.assertIn("继承型配置卡", eval_names["three-image-set-expands-with-one-main-config"]["expected_output"])
+
+        critical_cases = {item["id"]: item for item in critical["evals"]}
+        self.assertIn("ambiguous-upload-role-must-ask", critical_cases)
+        self.assertIn("competitor-layout-reference-not-parent", critical_cases)
+
     def test_image_default_font_is_not_blocking(self):
         skill = (PLUGIN_ROOT / "skills" / "onion-image" / "SKILL.md").read_text(encoding="utf-8")
         visual = (PLUGIN_ROOT / "skills" / "onion-image" / "references" / "视觉元素规范.md").read_text(encoding="utf-8")
@@ -293,6 +451,30 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("default font is an Onion font reference image", single)
         self.assertIn("Default font still uses an Onion font reference image", base)
 
+    def test_no_ip_prompts_randomize_visual_style(self):
+        visual = (PLUGIN_ROOT / "skills" / "onion-image" / "references" / "视觉元素规范.md").read_text(encoding="utf-8")
+        single = (PLUGIN_ROOT / "shared" / "recipes" / "single-prompt.md").read_text(encoding="utf-8")
+        base = (PLUGIN_ROOT / "shared" / "recipes" / "base-prompt.md").read_text(encoding="utf-8")
+        batch = (PLUGIN_ROOT / "shared" / "recipes" / "batch-prompting.md").read_text(encoding="utf-8")
+
+        self.assertIn("有 IP 时", visual)
+        self.assertIn("无 IP 时", visual)
+        self.assertIn("高质量动漫插画", visual)
+        self.assertIn("毛毡手作", visual)
+        self.assertIn("半写实广告插画", visual)
+        self.assertIn("赛璐珞动漫", visual)
+        self.assertIn("高质量家庭动画电影感", visual)
+        self.assertIn("不要写第三方品牌风格名", visual)
+
+        self.assertIn("有 IP 时", single)
+        self.assertIn("无 IP 时", single)
+        self.assertIn("从视觉风格池随机选择", single)
+        self.assertIn("有 IP 时", base)
+        self.assertIn("无 IP 时", base)
+        self.assertIn("从视觉风格池随机选择", base)
+        self.assertIn("used_styles", batch)
+        self.assertIn("Style", batch)
+
     def test_prompt_recipes_respect_screen_ui_gate(self):
         single = (PLUGIN_ROOT / "shared" / "recipes" / "single-prompt.md").read_text(encoding="utf-8")
         base = (PLUGIN_ROOT / "shared" / "recipes" / "base-prompt.md").read_text(encoding="utf-8")
@@ -305,6 +487,18 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("不要编造可识别的洋葱 APP 界面", single)
         self.assertIn("screen_ui_reference_required=true", base)
         self.assertIn("新增或替换屏幕内容", branch)
+
+    def test_prompt_recipes_keep_size_rules_out_of_prompt_text(self):
+        single = (PLUGIN_ROOT / "shared" / "recipes" / "single-prompt.md").read_text(encoding="utf-8")
+        base = (PLUGIN_ROOT / "shared" / "recipes" / "base-prompt.md").read_text(encoding="utf-8")
+
+        for text in (single, base):
+            self.assertIn("Prompt 正文不写具体像素", text)
+            self.assertIn("render.py --size", text)
+            self.assertIn("只保留竖版 / 横版 / 方图等构图语境", text)
+            self.assertNotIn("竖版 9:16", text)
+            self.assertNotIn("横版 3:2", text)
+            self.assertNotRegex(text, r"\\d{3,4}x\\d{3,4}.*prompt")
 
     def test_new_teacher_ip_assets_are_documented(self):
         visual = (PLUGIN_ROOT / "skills" / "onion-image" / "references" / "视觉元素规范.md").read_text(encoding="utf-8")
@@ -325,6 +519,9 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("采纳图打 zip", text)
         self.assertIn("package_accepted_images.py", text)
         self.assertIn("accepted_schemes", text)
+        self.assertIn("zip 只包含采纳图片", text)
+        self.assertIn("<zip-stem>-manifest.json", text)
+        self.assertIn("setNN_<set-id-slug>/setNN_imgNN", text)
         self.assertIn("原始 PNG 保留 7 天", text)
         self.assertIn("cleanup_image_outputs.py", text)
         self.assertIn("50 套三图", text)
@@ -340,6 +537,30 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("cannot skip the config page", text)
         self.assertIn("explicit numbered or named options", text)
         self.assertIn("Copy selected", text)
+
+    def test_help_documents_one_click_setup_and_cross_platform_check(self):
+        help_skill = (PLUGIN_ROOT / "skills" / "onion-help" / "SKILL.md").read_text(encoding="utf-8")
+        checklist = (PLUGIN_ROOT / "skills" / "onion-help" / "references" / "环境自检清单.md").read_text(encoding="utf-8")
+        env_template = (PLUGIN_ROOT / ".env.template").read_text(encoding="utf-8")
+
+        self.assertIn("一键配置", help_skill)
+        self.assertIn("setup_wizard.py bootstrap", help_skill)
+        self.assertIn("Mac / Windows", help_skill)
+        self.assertIn("setup-status.json", help_skill)
+        self.assertIn("safe bootstrap", help_skill)
+        self.assertIn("platform.family", checklist)
+        self.assertIn("python3 skills/onion-help/scripts/setup_wizard.py bootstrap", checklist)
+        self.assertIn("ONION_AD_OUTPUT_ROOT", checklist)
+        self.assertNotIn("which lark-cli", checklist)
+        self.assertNotIn("source ~/.onion-ad/.env", checklist)
+        self.assertIn("Windows", env_template)
+
+    def test_core_skills_require_lightweight_first_use_readiness_check(self):
+        for skill_name in ("onion-using", "onion-direction", "onion-copy", "onion-image", "onion-image-iterate"):
+            text = (PLUGIN_ROOT / "skills" / skill_name / "SKILL.md").read_text(encoding="utf-8")
+            self.assertIn("首启环境门禁", text, skill_name)
+            self.assertIn("setup-status.json", text, skill_name)
+            self.assertIn("onion-help", text, skill_name)
 
 
 if __name__ == "__main__":

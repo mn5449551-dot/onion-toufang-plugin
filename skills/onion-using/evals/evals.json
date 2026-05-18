@@ -1,11 +1,11 @@
 {
-  "skill_name": "onion-router",
+  "skill_name": "onion-using",
   "evals": [
     {
       "id": 0,
       "name": "direction-id-image-request-routes-to-copy",
       "prompt": "D-021 这个方向直接帮我出应用商店三图。",
-      "expected_output": "AI 应识别 D-XXX 不能直接出图。应路由到 onion-copy，先基于 D-021 生成或确认应用商店三图文案；只有拿到 C-ID 或明确文案后，后续出图请求才进入 onion-image。不应启动 /image-config，也不应直接 render。",
+      "expected_output": "AI 应识别 D-XXX 不能直接出图。应进入 onion-copy，先基于 D-021 生成或确认应用商店三图文案；只有拿到 C-ID 或明确文案后，后续出图请求才进入 onion-image。不应启动 /image-config，也不应直接 render。",
       "files": []
     },
     {
@@ -19,14 +19,14 @@
       "id": 2,
       "name": "uploaded-old-ad-routes-to-iterate",
       "prompt": "基于我上传的这张旧广告图，把文案换成拍完题马上看步骤，角色换小锤。",
-      "expected_output": "AI 应识别上传图是旧广告图锚点，用户要改文案和角色，因此路由到 onion-image-iterate。应确认迭代力度和改动轴，不应进入 onion-image 的新图探索配置页。",
+      "expected_output": "AI 应识别上传图是旧广告图锚点，用户要改文案和角色，因此进入 onion-image-iterate。应确认迭代力度和改动轴，不应进入 onion-image 的新图探索配置页。",
       "files": []
     },
     {
       "id": 3,
       "name": "oral-image-selection-routes-to-selection-page-result",
       "prompt": "图片选择页我看了，选 set1 入库吧。",
-      "expected_output": "AI 应识别不能口头选择 set 来入库。应路由回对应图片 skill，要求用户在选择页完成采纳/不采纳标注并提交，或粘贴同结构 JSON；只有 accepted_schemes 能写入 Base。",
+      "expected_output": "AI 应识别不能口头选择 set 来入库。应回到对应图片 skill，要求用户在选择页完成采纳/不采纳标注并提交；提交后读取本地 image-selection-result.json。只有 accepted_schemes 能写入 Base。",
       "files": []
     }
   ]

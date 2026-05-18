@@ -643,18 +643,16 @@ SETS_DATA schema:
         });
         const payload = await response.json();
         if (payload.ok) {
-          document.getElementById('submit-status').textContent = `已保存：${payload.path}`;
-          alert('✅ 标注结果已保存，请回到当前 AI 对话继续。');
+          document.getElementById('submit-status').textContent = `标注结果已保存：${payload.path}。请回到当前 AI 对话回复：好了。`;
+          alert('标注结果已保存，请回到当前 AI 对话回复：好了。');
           return;
         }
+        document.getElementById('submit-status').textContent = `保存失败：${payload.error || 'unknown error'}。请确认本地服务仍在运行后重试。`;
+        alert('保存失败，请确认本地服务仍在运行后重试。');
       } catch (err) {
-        // file:// or plain static server fallback.
+        document.getElementById('submit-status').textContent = `保存失败：${err.message}。请确认本地服务仍在运行后重试。`;
+        alert('保存失败，请确认本地服务仍在运行后重试。');
       }
-      navigator.clipboard.writeText(json).then(() => {
-        alert('✅ 标注结果已复制到剪贴板。\n请回到当前 AI 对话粘贴。');
-      }).catch(() => {
-        prompt('复制下面的 JSON 粘贴回 Claude Code：', json);
-      });
     }
 
     function mergeIncomingSets(incoming) {

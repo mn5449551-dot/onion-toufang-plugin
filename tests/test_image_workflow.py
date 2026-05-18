@@ -36,6 +36,31 @@ def run_workflow(output_dir: Path, *extra: str, env: Optional[dict] = None, chec
 
 
 class ImageWorkflowTests(unittest.TestCase):
+    def test_default_output_dir_uses_runtime_root_env(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as home:
+            env = os.environ.copy()
+            env["ONION_AD_OUTPUT_ROOT"] = tmp
+            env["HOME"] = home
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(WORKFLOW_SCRIPT),
+                    "status",
+                    "--request-id",
+                    "req-test",
+                ],
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=env,
+                check=True,
+            )
+
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload["stage"], "needs_config")
+            self.assertEqual(payload["artifacts"]["output_dir"], str((Path(tmp) / "req-test").resolve()))
+
     def test_missing_config_blocks_paid_rendering(self):
         with tempfile.TemporaryDirectory() as tmp:
             payload = run_workflow(Path(tmp))
@@ -122,6 +147,7 @@ class ImageWorkflowTests(unittest.TestCase):
 
         self.assertEqual(payload["stage"], "ready_to_write_base")
         self.assertTrue(payload["can_write_base"])
+        self.assertTrue(payload["artifacts"]["accepted_package"].endswith("req-test-accepted-images.zip"))
         self.assertIn("write_image_group.py", payload["next_action"])
 
     def test_write_result_marks_workflow_complete_and_blocks_duplicate_base_write(self):
@@ -175,7 +201,7 @@ class ImageWorkflowTests(unittest.TestCase):
             root = Path(tmp)
             (root / "image-config-result.json").write_text(json.dumps({"request_id": "req-test"}), encoding="utf-8")
             env = os.environ.copy()
-            env["LAOZHANG_API_KEY"] = "sk-test-valid"
+            env["LAOZHANG_API_KEY"] = "test-valid-key"
 
             payload = run_workflow(root, env=env)
 
@@ -199,12 +225,37 @@ class ImageWorkflowTests(unittest.TestCase):
                 encoding="utf-8",
             )
             env = os.environ.copy()
-            env["LAOZHANG_API_KEY"] = "sk-test-valid"
+            env["LAOZHANG_API_KEY"] = "test-valid-key"
 
             payload = run_workflow(root, env=env)
 
         self.assertEqual(payload["stage"], "needs_ui_reference_upload")
         self.assertFalse(payload["can_render"])
+
+    def test_iterate_unknown_uploaded_role_blocks_render(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "image-config-result.json").write_text(
+                json.dumps(
+                    {
+                        "request_id": "req-test",
+                        "generation_mode": "iterate",
+                        "iteration_mode": "expand_similar",
+                        "uploaded_image_role": "unknown",
+                        "placements": [{"id": "slot1", "render_size": "1280x720"}],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            env = os.environ.copy()
+            env["LAOZHANG_API_KEY"] = "test-valid-key"
+
+            payload = run_workflow(root, env=env)
+
+        self.assertEqual(payload["stage"], "invalid_config")
+        self.assertFalse(payload["can_render"])
+        self.assertIn("uploaded_image_role", payload["next_action"])
 
 
 if __name__ == "__main__":

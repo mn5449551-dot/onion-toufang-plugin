@@ -16,8 +16,16 @@ from pathlib import Path
 import sys
 from typing import Any
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+PLUGIN_ROOT = SCRIPT_DIR.parents[2]
+SHARED_SCRIPTS = PLUGIN_ROOT / "shared" / "scripts"
+if str(SHARED_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(SHARED_SCRIPTS))
 
-DEFAULT_ROOT = Path("/tmp/onion-ad")
+from runtime_paths import request_output_dir  # noqa: E402
+from write_selection_feedback import feedback_records_from_selection
+
+
 ENV_FILE = Path.home() / ".onion-ad" / ".env"
 PLACEHOLDER_KEY_MARKERS = ("你的", "占位", "sk-xxx", "sk-your-key", "your-key")
 
@@ -122,12 +130,21 @@ def request_id_errors(request_id: str, artifacts: list[tuple[str, dict[str, Any]
 def config_errors(config: dict[str, Any] | None) -> list[str]:
     if not config:
         return []
+    errors = []
     placements = config.get("placements")
     if not isinstance(placements, list) or not placements:
-        return ["image-config-result.json must include non-empty placements"]
-    if not any(isinstance(item, dict) and item.get("render_size") for item in placements):
-        return ["placements must include render_size"]
-    return []
+        errors.append("image-config-result.json must include non-empty placements")
+    elif not any(isinstance(item, dict) and item.get("render_size") for item in placements):
+        errors.append("placements must include render_size")
+    generation_mode = str(config.get("generation_mode") or config.get("generationMode") or "explore")
+    if generation_mode == "iterate":
+        role = str(config.get("uploaded_image_role") or config.get("uploadedImageRole") or "").strip()
+        if role in {"", "unknown"}:
+            errors.append("generation_mode=iterate requires uploaded_image_role other than unknown")
+        iteration_mode = str(config.get("iteration_mode") or config.get("iterationMode") or "").strip()
+        if iteration_mode not in {"tweak", "expand_similar", "reframe"}:
+            errors.append("generation_mode=iterate requires iteration_mode=tweak|expand_similar|reframe")
+    return errors
 
 
 def build_status(request_id: str, output_dir: Path) -> dict[str, Any]:
@@ -136,17 +153,20 @@ def build_status(request_id: str, output_dir: Path) -> dict[str, Any]:
     config_path = output_dir / "image-config-result.json"
     sets_path = output_dir / "image-sets.json"
     selection_path = output_dir / "image-selection-result.json"
+    feedback_result_path = output_dir / "image-feedback-result.json"
 
     config = load_json(config_path)
     image_sets = load_json(sets_path)
     selection = load_json(selection_path)
     accepted = accepted_schemes(selection)
+    feedback_records = feedback_records_from_selection(selection) if selection else []
 
     artifacts = {
         "output_dir": str(output_dir),
         "config": str(config_path) if config_path.is_file() else None,
         "image_sets": str(sets_path) if sets_path.is_file() else None,
         "selection_result": str(selection_path) if selection_path.is_file() else None,
+        "feedback_result": str(feedback_result_path) if feedback_result_path.is_file() else None,
         "accepted_package": None,
     }
 
@@ -194,7 +214,7 @@ def build_status(request_id: str, output_dir: Path) -> dict[str, Any]:
             **base,
             "stage": "invalid_config",
             "errors": invalid_config,
-            "next_action": "image-config-result.json 缺少有效 placements/render_size。请重新打开配置页保存配置，不要直接渲染。",
+            "next_action": "image-config-result.json 缺少有效 placements/render_size，或迭代配置缺少 uploaded_image_role / iteration_mode。请重新打开配置页保存配置，不要直接渲染。",
         }
 
     if ui_reference_required(config) and not ui_reference_satisfied(config, output_dir):
@@ -225,6 +245,15 @@ def build_status(request_id: str, output_dir: Path) -> dict[str, Any]:
             "stage": "needs_selection",
             "can_prompt": True,
             "next_action": "构建或打开 image-selection.html，让用户完成采纳/不采纳标注并提交。",
+        }
+
+    if feedback_records and not feedback_result_path.is_file():
+        return {
+            **base,
+            "stage": "needs_feedback_write",
+            "can_prompt": True,
+            "feedback_count": len(feedback_records),
+            "next_action": "先运行 scripts/write_selection_feedback.py 把 rejected_schemes 里的固定规则 / 主观评价写入 feedbacks，再继续打包 accepted_schemes。",
         }
 
     if not accepted:
@@ -265,7 +294,7 @@ def build_status(request_id: str, output_dir: Path) -> dict[str, Any]:
 
 
 def default_output_dir(request_id: str) -> Path:
-    return DEFAULT_ROOT / request_id
+    return request_output_dir(request_id)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -274,7 +303,7 @@ def main(argv: list[str] | None = None) -> int:
 
     status = subparsers.add_parser("status", help="Print current workflow stage as JSON.")
     status.add_argument("--request-id", required=True)
-    status.add_argument("--output-dir", help="Defaults to /tmp/onion-ad/<request-id>")
+    status.add_argument("--output-dir", help="Defaults to the portable onion output root for this request.")
 
     args = parser.parse_args(argv)
     output_dir = Path(args.output_dir) if args.output_dir else default_output_dir(args.request_id)

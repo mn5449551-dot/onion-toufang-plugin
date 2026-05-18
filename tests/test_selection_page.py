@@ -116,6 +116,11 @@ class SelectionPageTests(unittest.TestCase):
             self.assertIn("/api/image-sets", text)
             self.assertIn("accepted_schemes", text)
             self.assertIn("Only accepted_schemes may be written to Feishu", text)
+            self.assertIn("标注结果已保存", text)
+            self.assertIn("回到当前 AI 对话回复：好了", text)
+            self.assertNotIn("clipboard.writeText", text)
+            self.assertNotIn("复制下面的 JSON", text)
+            self.assertNotIn("粘贴回 Claude Code", text)
             self.assertNotIn("{{SETS_DATA}}", text)
 
 

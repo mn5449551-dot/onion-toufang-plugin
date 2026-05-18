@@ -54,7 +54,7 @@ Base URL: https://guanghe.feishu.cn/base/WIoGb0ksnaREvJsPtQCcW8Lsnfg
 | `素材方向` | text（主字段）| ✅ | 一句话点睛，如"方向：主打识别准确——拍三遍还不对，洋葱一拍就准" |
 | `方向ID` | auto_number（D-XXX）| 自动 | 不传，飞书自动生成 |
 | `功能` | select 单 | ✅ | 当前常见选项：拍题精学 / 同步课 / 总复习 / 学情报告 / 学习机 / 其他；完整功能矩阵见 `shared/knowledge/卖点库.md`，新增功能需先确认 Base 选项或映射为 `其他` |
-| `卖点` | select 多 | ✅ | 多选，从 `shared/knowledge/卖点库.md` 同步；字段选项未同步时先记录 pending，不静默改 schema |
+| `卖点` | text | ✅ | 飞书 Base 里这是文本字段，不是选项字段。内部可选 1-3 个卖点做创意判断；写入 Base 时传文本，用 `；` 或 `、` 连接，不要传数组 |
 | `目标人群` | text | ✅ | 30-50 字具体场景化描述（参考即可，合理超出 OK）|
 | `适配阶段` | select 单 | ✅ | 日常学习 / P0-寒假 / P0-开学 / 期中前 / 期末前 / 暑期 / 其他 |
 | `1 能解决用户在"具体哪个场景里的哪个问题"` | text | ✅ | 长字段名，JSON 转义引号注意 |
@@ -86,7 +86,7 @@ Base URL: https://guanghe.feishu.cn/base/WIoGb0ksnaREvJsPtQCcW8Lsnfg
     [
       "方向：主打识别准确——拍三遍还不对，洋葱一拍就准",
       "拍题精学",
-      ["识别准确", "AI+名师校准"],
+      "识别准确；AI+名师校准",
       "频繁使用各种拍题 App、但反复踩坑被迫换工具的中小学生",
       "日常学习",
       "用其他 App 拍了三遍题目，总说无法识别；好不容易识别出来了，答案解析还是错的。",
@@ -126,9 +126,9 @@ Base URL: https://guanghe.feishu.cn/base/WIoGb0ksnaREvJsPtQCcW8Lsnfg
 | `关联文案` | link → copies | ❌ 选填 | 有可信文案 record_id 时写；临时图片/临时文案可空 |
 | `渠道` | select 单 | ✅ | 信息流 / 应用商店 / 学习机 / 百度 |
 | `图片形式` | select 单 | ✅ | 单图 / 双图 / 三图 |
-| `版位` | text 或 select 单 | ❌ | 优先写精确版位名，如 `OPPO 常规-富媒体 横版大图 1280x720`；若仍是 select，维护人需同步选项 |
-| `比例` | select 单 / text | ✅ | 兼容旧字段；新流程优先由 `target_size` / `render_size` 驱动，不让用户手选比例 |
-| `IP形象` | select 单 | ❌ | 豆包 / 上官 / 小锤 / 雷婷 / 豆花 / 狗蛋 / 不用；别名先归一，如王小锤→小锤、田豆花→豆花、李狗蛋儿→狗蛋 |
+| `版位` | text | ❌ | 写精确版位名，如 `OPPO 常规-富媒体 横版大图 1280x720`；不要做成固定选项，否则新渠道版位会卡写入 |
+| `比例` | text | ✅ | 兼容旧字段；新流程优先由 `target_size` / `render_size` 驱动，不让用户手选比例 |
+| `IP形象` | text | ❌ | 写实际使用的 IP 标准名或配置值，例如 `豆包`、`Nina老师`、`随机`、`不用`；完整资产和变体以 `asset-manifest.json` 为准 |
 | `IP参考图引用` | text | ❌ | manifest 标准相对路径，如 `assets/ip-roles/doubao/doubao-junior-standard-001.png` |
 | `Logo` | select 单 | ❌ | 洋葱学园 / 洋葱学园+APP / 不用 |
 | `Logo参考图引用` | text | ❌ | manifest 标准相对路径，如 `assets/logos/onion-logo-standard-001.png` |
@@ -173,6 +173,7 @@ Base URL: https://guanghe.feishu.cn/base/WIoGb0ksnaREvJsPtQCcW8Lsnfg
 
 | 注意点 | 说明 |
 |---|---|
+| `D-XXX / C-XXX / G-XXX` 自动编号 | 飞书 auto_number 是字段级递增计数，删除测试记录通常不会重置编号；这不是本地残留导致的。需要从 001 重开时，应新建表/字段或重建 Base，再同步 table_id/field_id |
 | `created_at / created_by / updated_at` | **绝对不传**，飞书原生维护，传了会失败 |
 | `link` 字段 | 传被关联记录的 `record_id` 数组（不是名字），如 `["recABC123"]` |
 | `select` 单选 | 传选项 name 字符串，如 `"信息流"` |

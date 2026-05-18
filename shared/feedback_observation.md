@@ -68,6 +68,20 @@
 
 不要传 `反馈ID`、`创建人`、`创建时间`、`最后更新时间`。这些字段由飞书根据当前 `lark-cli --as user` 身份自动填充，能记录真实作者和入库时间。
 
+## 图片选择页反馈
+
+图片流的反馈入口在标注页提交之后，而不是额外弹满意度问询。`image-selection-result.json` 是唯一依据：
+
+| JSON 位置 | 写入方式 |
+|---|---|
+| `accepted_schemes` | 只用于 `image_groups` 入库，不当作反馈 |
+| `rejected_schemes[].annotation.ruleFeedback` | 写 `反馈对象类型=图组`、`反馈类型=固定规则` |
+| `rejected_schemes[].annotation.note` | 写 `反馈对象类型=图组`、`反馈类型=主观评价` |
+| `rejected_schemes[].annotation.reason=说不清楚` 且没有具体文字 | 不写入 |
+| `pending_scheme_ids` | 不写入，等待用户后续决定 |
+
+未采纳的新图通常还没有 G-ID，`被反馈对象ID` 使用 `<request_id>:<set_id>` 作为临时锚点；如果选择结果里已有 `G-XXX` 或原图组 ID，则优先使用真实图组 ID。脚本会把渠道、版位、图片形式和问题图位写进 `建议改法` 作为分析上下文。
+
 ---
 
 ## 写入方式
@@ -82,6 +96,16 @@ python3 "$PLUGIN_ROOT/shared/scripts/write_record.py" \
 ```
 
 脚本会使用 `~/.onion-ad/.env` 的 Base 配置；写入失败时按共享 Base 操作逻辑重试，仍失败则进入 `~/.onion-ad/pending.jsonl`，后续由维护人或用户明确要求时运行补偿脚本处理。
+
+图片选择页的固定规则 / 主观评价走专用脚本，避免 Agent 手工解析 JSON：
+
+```bash
+PLUGIN_ROOT=/path/to/onion-toufang-plugin
+python3 "$PLUGIN_ROOT/skills/onion-image/scripts/write_selection_feedback.py" \
+  --selection-result <output-dir>/image-selection-result.json
+```
+
+脚本会调用共享 `write_record.py` 写 `feedbacks`，并在同目录生成 `image-feedback-result.json`。后续 `image_workflow.py status` 会用这个文件判断反馈已处理，避免同一次标注重复写入。
 
 ---
 

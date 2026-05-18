@@ -26,10 +26,15 @@ SKILL_DIR = SCRIPT_DIR.parent
 PLUGIN_ROOT = SKILL_DIR.parents[1]
 DEFAULT_CHANNEL_RULES = SKILL_DIR / "config" / "channel-placement-rules.json"
 ASSET_MANIFEST = SKILL_DIR / "assets" / "asset-manifest.json"
+CONFIG_TEMPLATE = SKILL_DIR / "templates" / "image-config.html"
 FONT_DIR = SKILL_DIR / "assets" / "font-references"
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
+SHARED_SCRIPTS = PLUGIN_ROOT / "shared" / "scripts"
+if str(SHARED_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(SHARED_SCRIPTS))
 from build_selection_page import normalize_sets  # noqa: E402
+from runtime_paths import request_output_dir  # noqa: E402
 
 IMAGE_SETS_FILE = "image-sets.json"
 
@@ -344,8 +349,9 @@ def normalize_channel_placement(slot: dict[str, Any]) -> dict[str, Any]:
 
 
 def normalize_desired_image_form(context: dict[str, Any]) -> str:
+    fields = flatten_context(context)
     for key in ("image_form", "imageForm", "图片形式", "form"):
-        value = str(context.get(key) or "").strip()
+        value = str(fields.get(key) or "").strip()
         if not value:
             continue
         lowered = value.lower()
@@ -357,7 +363,85 @@ def normalize_desired_image_form(context: dict[str, Any]) -> str:
             return "双图"
         if lowered in {"triple", "three", "three_images"} or "三" in value:
             return "三图"
+    for value in raw_context_strings(fields):
+        if "三图" in value:
+            return "三图"
+        if "双图" in value or "两图" in value:
+            return "双图"
+        if "单图" in value:
+            return "单图"
+    if any(non_empty_text(fields.get(key)) for key in ("短句3", "short3", "copy_text_3")):
+        return "三图"
+    if any(non_empty_text(fields.get(key)) for key in ("短句2", "short2", "copy_text_2")):
+        return "双图"
+    if any(non_empty_text(fields.get(key)) for key in ("主标题", "副标题", "main_title", "subtitle", "title")):
+        return "单图"
     return ""
+
+
+def non_empty_text(value: Any) -> bool:
+    return bool(str(value or "").strip())
+
+
+def flatten_context(context: dict[str, Any]) -> dict[str, Any]:
+    fields: dict[str, Any] = {}
+
+    def visit(value: Any) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                fields.setdefault(str(key), child)
+                visit(child)
+        elif isinstance(value, list):
+            for child in value:
+                visit(child)
+
+    visit(context)
+    return fields
+
+
+def raw_context_strings(fields: dict[str, Any]) -> list[str]:
+    values = []
+    for key in ("raw", "raw_text", "user_request", "需求", "brief", "intent", "query", "message"):
+        value = fields.get(key)
+        if isinstance(value, str) and value.strip():
+            values.append(value.strip())
+    return values
+
+
+def normalize_channel_name(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    lowered = text.lower()
+    if text in {"信息流", "应用商店", "学习机", "百度"}:
+        return text
+    if lowered in {"feed", "information_feed", "information-feed", "info_feed", "news_feed"} or "信息流" in text:
+        return "信息流"
+    if lowered in {"app_store", "app-store", "appstore", "store"} or "应用商店" in text or "信用商店" in text:
+        return "应用商店"
+    if lowered in {"learning_device", "learning-device", "study_machine"} or "学习机" in text:
+        return "学习机"
+    if lowered in {"baidu"} or "百度" in text:
+        return "百度"
+    return ""
+
+
+def normalize_desired_channels(context: dict[str, Any]) -> list[str]:
+    fields = flatten_context(context)
+    raw_values: list[Any] = []
+    for key in ("channel", "channels", "渠道", "渠道列表", "category", "categories"):
+        value = fields.get(key)
+        if isinstance(value, list):
+            raw_values.extend(value)
+        elif value:
+            raw_values.append(value)
+    raw_values.extend(raw_context_strings(fields))
+    channels: list[str] = []
+    for value in raw_values:
+        name = normalize_channel_name(value)
+        if name and name not in channels:
+            channels.append(name)
+    return channels
 
 
 def apply_context_image_form(slots: list[dict[str, Any]], desired_form: str) -> list[dict[str, Any]]:
@@ -374,8 +458,32 @@ def apply_context_image_form(slots: list[dict[str, Any]], desired_form: str) -> 
     return constrained
 
 
-def slots_by_id(path: Path | None = None) -> dict[str, dict[str, Any]]:
-    return {str(slot["id"]): slot for slot in load_platform_slots(path) if slot.get("id")}
+def apply_context_channels(slots: list[dict[str, Any]], desired_channels: list[str]) -> list[dict[str, Any]]:
+    if not desired_channels:
+        return slots
+    constrained = []
+    label = " / ".join(desired_channels)
+    for slot in slots:
+        item = dict(slot)
+        slot_channel = item.get("channel") or item.get("category")
+        if slot_channel and slot_channel not in desired_channels and item.get("enabled", True):
+            item["enabled"] = False
+            item["disabled_reason"] = f"本次渠道为{label}，该版位是{slot_channel}"
+        constrained.append(item)
+    return constrained
+
+
+def constrained_slots_for_context(context: dict[str, Any] | None = None, path: Path | None = None) -> list[dict[str, Any]]:
+    context = context or {}
+    desired_form = normalize_desired_image_form(context)
+    desired_channels = normalize_desired_channels(context)
+    slots = load_platform_slots(path)
+    slots = apply_context_image_form(slots, desired_form)
+    return apply_context_channels(slots, desired_channels)
+
+
+def slots_by_id(path: Path | None = None, context: dict[str, Any] | None = None) -> dict[str, dict[str, Any]]:
+    return {str(slot["id"]): slot for slot in constrained_slots_for_context(context, path) if slot.get("id")}
 
 
 def load_ip_options(manifest_path: Path = ASSET_MANIFEST) -> list[dict[str, Any]]:
@@ -440,8 +548,12 @@ def build_config_payload(
     platform_rules: Path | None = None,
 ) -> dict[str, Any]:
     context = context or {}
+    generation_mode = str(context.get("generation_mode") or context.get("generationMode") or "explore")
+    if generation_mode not in {"explore", "iterate"}:
+        generation_mode = "explore"
     desired_form = normalize_desired_image_form(context)
-    slots = apply_context_image_form(load_platform_slots(platform_rules), desired_form)
+    desired_channels = normalize_desired_channels(context)
+    slots = constrained_slots_for_context(context, platform_rules)
     categories = []
     for slot in slots:
         category = slot.get("category") or slot.get("channel")
@@ -450,8 +562,10 @@ def build_config_payload(
     return {
         "request_id": request_id,
         "context": context,
+        "generationMode": generation_mode,
         "slots": slots,
         "desiredImageForm": desired_form,
+        "desiredChannels": desired_channels,
         "ipOptions": load_ip_options(),
         "fontOptions": load_font_options(),
         "logoOptions": load_logo_options(),
@@ -513,9 +627,7 @@ def normalize_config_result(body: dict[str, Any], slot_map: dict[str, dict[str, 
     if not isinstance(placement_ids, list):
         raise ValueError("placement_ids must be a list")
     if not placement_ids:
-        first_enabled = next((slot for slot in slot_map.values() if slot.get("enabled", True)), None)
-        if first_enabled:
-            placement_ids = [first_enabled["id"]]
+        raise ValueError("select at least one enabled placement")
     placements = []
     for placement_id in placement_ids:
         slot = slot_map.get(str(placement_id))
@@ -528,9 +640,12 @@ def normalize_config_result(body: dict[str, Any], slot_map: dict[str, dict[str, 
         raise ValueError("select at least one enabled placement")
 
     result = dict(body)
+    generation_mode = str(body.get("generation_mode") or body.get("generationMode") or "explore")
+    if generation_mode not in {"explore", "iterate"}:
+        generation_mode = "explore"
     result["request_id"] = body.get("request_id")
     result["type"] = "image_config"
-    result["generation_mode"] = "explore"
+    result["generation_mode"] = generation_mode
     result["placement_ids"] = [slot["id"] for slot in placements]
     result["placements"] = placements
     result["categories"] = sorted({slot["category"] for slot in placements if slot.get("category")})
@@ -553,6 +668,52 @@ def normalize_config_result(body: dict[str, Any], slot_map: dict[str, dict[str, 
     result["sets"] = max(1, min(50, int(body.get("sets") or 1)))
     result["ip_random"] = bool(body.get("ip_random") or body.get("ip") == "随机")
     result["font_reference_randomized"] = bool(body.get("font_reference_enabled", body.get("fontEnabled", True)))
+    if generation_mode == "iterate":
+        iteration_mode = str(body.get("iteration_mode") or body.get("iterationMode") or "expand_similar")
+        if iteration_mode not in {"tweak", "expand_similar", "reframe"}:
+            iteration_mode = "expand_similar"
+        inherit = body.get("inherit") if isinstance(body.get("inherit"), dict) else {}
+        inherit_defaults = {
+            "placement": True,
+            "image_form": True,
+            "logo": True,
+            "ip": True,
+            "cta": True,
+            "style": True,
+            "copy": True,
+        }
+        inherit_defaults.update({key: bool(value) for key, value in inherit.items()})
+        change_axes = body.get("change_axes") or body.get("changeAxes") or []
+        if isinstance(change_axes, str):
+            change_axes = [item.strip() for item in change_axes.split(",") if item.strip()]
+        if not isinstance(change_axes, list):
+            change_axes = []
+        per_image_notes = body.get("per_image_notes") or body.get("perImageNotes") or {}
+        if isinstance(per_image_notes, str):
+            per_image_notes = {"notes": per_image_notes.strip()} if per_image_notes.strip() else {}
+        if not isinstance(per_image_notes, dict):
+            per_image_notes = {}
+        base = body.get("base") if isinstance(body.get("base"), dict) else {}
+        uploaded_role = str(
+            body.get("uploaded_image_role")
+            or body.get("uploadedImageRole")
+            or base.get("uploaded_image_role")
+            or "unknown"
+        )
+        result["iteration_mode"] = iteration_mode
+        result["base"] = base
+        result["uploaded_image_role"] = uploaded_role
+        result["inherit"] = inherit_defaults
+        result["change_axes"] = change_axes
+        result["per_image_notes"] = per_image_notes
+        result["iteration"] = {
+            "iteration_mode": iteration_mode,
+            "base_image_role": uploaded_role,
+            "change_axes": change_axes,
+            "keep_axes": [key for key, value in inherit_defaults.items() if value],
+            "inherit": inherit_defaults,
+            "per_image_notes": per_image_notes,
+        }
     screen_ui_required = bool(
         body.get("screen_ui_reference_required")
         or body.get("screenUiReferenceRequired")
@@ -577,493 +738,7 @@ def normalize_config_result(body: dict[str, Any], slot_map: dict[str, dict[str, 
 def build_config_html(payload: dict[str, Any]) -> str:
     data_json = json.dumps(payload, ensure_ascii=False)
     request_id = html_escape(payload["request_id"])
-    template = """<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>洋葱投放图片配置 - __REQUEST_ID__</title>
-  <style>
-    :root {
-      --ink: #1e2329;
-      --body: #3f454d;
-      --muted: #7d8791;
-      --line: #dfe3e8;
-      --soft: #f6f7f9;
-      --panel: #ffffff;
-      --accent: #e8835a;
-      --accent-soft: #fff3ed;
-      --ok: #2f7d32;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
-      background: var(--soft);
-      color: var(--body);
-      font-size: 14px;
-    }
-    .topbar {
-      position: sticky;
-      top: 0;
-      z-index: 5;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 14px 22px;
-      background: var(--panel);
-      border-bottom: 1px solid var(--line);
-    }
-    h1 { margin: 0; font-size: 18px; color: var(--ink); }
-    .request { color: var(--muted); font-size: 12px; }
-    main {
-      width: min(1280px, calc(100vw - 32px));
-      margin: 16px auto 96px;
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 380px;
-      gap: 16px;
-    }
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 16px;
-    }
-    .panel h2 { margin: 0 0 12px; font-size: 15px; color: var(--ink); }
-    .tabs {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 14px;
-      border-bottom: 1px solid var(--line);
-      padding-bottom: 10px;
-    }
-    .tab {
-      border: 1px solid var(--line);
-      background: white;
-      border-radius: 6px;
-      padding: 8px 14px;
-      cursor: pointer;
-      color: var(--ink);
-      font: inherit;
-    }
-    .tab.active {
-      border-color: var(--accent);
-      background: var(--accent-soft);
-      color: var(--accent);
-      font-weight: 600;
-    }
-    .slot-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      gap: 10px;
-    }
-    .option {
-      text-align: left;
-      border: 1px solid var(--line);
-      background: white;
-      border-radius: 8px;
-      padding: 12px;
-      cursor: pointer;
-      min-height: 96px;
-    }
-    .option:hover { border-color: var(--accent); }
-    .option.active { border-color: var(--accent); background: var(--accent-soft); }
-    .option.disabled { opacity: 0.48; cursor: not-allowed; background: #f1f3f5; }
-    .option.disabled:hover { border-color: var(--line); }
-    .option strong { display: block; color: var(--ink); margin-bottom: 4px; }
-    .option span { display: block; color: var(--muted); font-size: 12px; line-height: 1.45; }
-    .badges { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
-    .badge { border: 1px solid var(--line); border-radius: 999px; padding: 2px 7px; color: var(--muted); font-size: 11px; }
-    label { display: block; margin: 0 0 6px; color: var(--ink); font-size: 13px; }
-    input, textarea {
-      width: 100%;
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      padding: 9px 10px;
-      font: inherit;
-      background: white;
-      color: var(--body);
-    }
-    textarea { min-height: 86px; resize: vertical; }
-    .field { margin-bottom: 16px; }
-    .hint { color: var(--muted); font-size: 12px; margin-top: 5px; line-height: 1.5; }
-    .thumb-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
-    }
-    .thumb-card {
-      border: 1px solid var(--line);
-      background: white;
-      border-radius: 8px;
-      min-height: 112px;
-      padding: 8px;
-      cursor: pointer;
-      display: grid;
-      grid-template-rows: 64px auto;
-      gap: 6px;
-      align-items: center;
-      text-align: center;
-      color: var(--body);
-      font: inherit;
-    }
-    .thumb-card.active { border-color: var(--accent); background: var(--accent-soft); }
-    .thumb-card img {
-      max-width: 100%;
-      max-height: 64px;
-      object-fit: contain;
-      margin: 0 auto;
-      display: block;
-    }
-    .thumb-card .empty {
-      height: 64px;
-      display: grid;
-      place-items: center;
-      border: 1px dashed var(--line);
-      border-radius: 6px;
-      color: var(--muted);
-      font-size: 12px;
-    }
-    .thumb-card span {
-      font-size: 12px;
-      line-height: 1.25;
-      word-break: break-word;
-    }
-    .switch-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 10px 12px;
-      background: white;
-    }
-    .switch-row input { width: auto; }
-    .summary-list {
-      display: grid;
-      gap: 8px;
-      margin-top: 8px;
-    }
-    .summary-list div {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      border-bottom: 1px solid var(--line);
-      padding-bottom: 8px;
-    }
-    .summary-list dt { color: var(--muted); }
-    .summary-list dd { margin: 0; color: var(--ink); text-align: right; }
-    .actions {
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      padding: 12px 22px;
-      background: rgba(255,255,255,0.96);
-      border-top: 1px solid var(--line);
-      display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-    }
-    button.primary {
-      border: 1px solid var(--accent);
-      background: var(--accent);
-      color: white;
-      border-radius: 6px;
-      padding: 10px 18px;
-      font: inherit;
-      cursor: pointer;
-    }
-    button.secondary {
-      border: 1px solid var(--line);
-      background: white;
-      color: var(--ink);
-      border-radius: 6px;
-      padding: 10px 18px;
-      font: inherit;
-      cursor: pointer;
-    }
-    .status { margin-right: auto; color: var(--muted); align-self: center; }
-    .hidden { display: none; }
-  </style>
-</head>
-<body>
-  <div class="topbar">
-    <h1>图片生成配置</h1>
-    <span class="request">Request __REQUEST_ID__</span>
-  </div>
-  <main>
-    <section class="panel">
-      <h2>投放场景</h2>
-      <div id="category-tabs" class="tabs"></div>
-      <h2>具体版位</h2>
-      <div class="hint">可多选。用户只选版位，不选尺寸；卡片内展示目标尺寸、gpt 出图尺寸、压缩上限和一期支持状态。</div>
-      <div id="slot-grid" class="slot-grid"></div>
-    </section>
-    <aside class="panel">
-      <h2>配置</h2>
-      <div class="field">
-        <label for="sets">套数</label>
-        <input id="sets" type="number" min="1" max="50" step="1">
-        <div class="hint">手动输入，最多 50 套；大批量会分批生成和刷新。</div>
-      </div>
-      <div class="field">
-        <label>Logo</label>
-        <div id="logo-grid" class="thumb-grid"></div>
-      </div>
-      <div class="field">
-        <label>IP</label>
-        <div id="ip-grid" class="thumb-grid"></div>
-        <div class="hint">选择“随机 IP”时，每个版位/每套图都由 Agent 从本地 IP 资产中重新抽取，不锁定同一个角色。</div>
-      </div>
-      <div class="field">
-        <label for="font">字体参考</label>
-        <label class="switch-row">
-          <span>启用洋葱专属字体参考</span>
-          <input id="fontEnabled" type="checkbox" checked>
-        </label>
-        <div class="hint">启用后生成时从字体参考库完全随机抽取，不需要人工选择具体哪张。</div>
-      </div>
-      <div id="ctaField" class="field hidden">
-        <label for="cta">CTA</label>
-        <input id="cta" placeholder="仅信息流填写，例如：立即体验 / 现在下载">
-      </div>
-      <div class="field">
-        <label>界面 / 功能参考图</label>
-        <label class="switch-row">
-          <span>画面需要展示洋葱 APP 界面/功能截图</span>
-          <input id="uiReferenceRequired" type="checkbox">
-        </label>
-        <div class="hint">只有最终画面里有手机、学习机或其它电子屏幕，并且屏幕要显示可识别的洋葱 APP 功能界面时才勾选。不要在 HTML 里上传；保存后请回到 Codex 上传截图。若不展示具体 UI，可不勾选并让 Agent 弱化/模糊屏幕内容。</div>
-      </div>
-      <div class="field">
-        <label for="notes">补充说明</label>
-        <textarea id="notes" placeholder="填写生图建议，例如：更像应用商店截图、不要太信息流、文字更少、人物更靠右。"></textarea>
-      </div>
-      <h2>摘要</h2>
-      <dl id="summary" class="summary-list"></dl>
-    </aside>
-  </main>
-  <div class="actions">
-    <span id="status" class="status"></span>
-    <button class="secondary" onclick="copyResult()">复制 JSON</button>
-    <button class="primary" onclick="submitConfig()">保存配置</button>
-  </div>
-  <script>
-    const DATA = __DATA_JSON__;
-    const state = {
-      category: DATA.categories?.[0] || DATA.slots[0]?.channel || "应用商店",
-      selectedSlotIds: [],
-      sets: 2,
-      logoIndex: Math.min(1, Math.max(DATA.logoOptions.length - 1, 0)),
-      ipIndex: 0,
-      fontEnabled: true,
-      uiReferenceRequired: false,
-      cta: "",
-      notes: ""
-    };
-
-    function slotsForCategory() { return DATA.slots.filter(slot => slot.channel === state.category || slot.category === state.category); }
-    function enabledSlots() { return DATA.slots.filter(slot => slot.enabled !== false); }
-    function selectedSlots() {
-      const byId = Object.fromEntries(DATA.slots.map(slot => [slot.id, slot]));
-      state.selectedSlotIds = state.selectedSlotIds.filter(id => byId[id]?.enabled !== false);
-      if (!state.selectedSlotIds.length) {
-        const first = slotsForCategory().find(slot => slot.enabled !== false) || enabledSlots()[0];
-        if (first) state.selectedSlotIds = [first.id];
-      }
-      return state.selectedSlotIds.map(id => byId[id]).filter(Boolean);
-    }
-    function selectedLogo() { return DATA.logoOptions[Number(state.logoIndex)] || DATA.logoOptions[0]; }
-    function selectedIp() { return DATA.ipOptions[Number(state.ipIndex)] || DATA.ipOptions[0]; }
-
-    function renderCategories() {
-      const tabs = document.getElementById("category-tabs");
-      tabs.innerHTML = DATA.categories.map(category => `
-        <button class="tab ${category === state.category ? "active" : ""}" onclick="selectCategory('${category}')">${category}</button>
-      `).join("");
-    }
-
-    function renderSlots() {
-      const grid = document.getElementById("slot-grid");
-      const slots = slotsForCategory();
-      selectedSlots();
-      grid.innerHTML = slots.map(slot => `
-        <button class="option ${state.selectedSlotIds.includes(slot.id) ? "active" : ""} ${slot.enabled === false ? "disabled" : ""}" onclick="toggleSlot('${slot.id}')" ${slot.enabled === false ? "disabled" : ""}>
-          <strong>${slot.platform} · ${slot.name}</strong>
-          <span>${slot.sub_channel || ""}</span>
-          <span>目标 ${slot.target_size || "-"} / gpt ${slot.render_size || "-"} / &lt;${slot.maxFileSizeKb || "-"}KB</span>
-          <span>${slot.imageForm} / ${slot.directness_label || slot.directness || ""}</span>
-          ${slot.disabled_reason ? `<span>暂不可选：${slot.disabled_reason}</span>` : ""}
-          <div class="badges">
-            <span class="badge">target_size</span>
-            <span class="badge">render_size</span>
-            <span class="badge">disabled_reason</span>
-          </div>
-        </button>
-      `).join("");
-    }
-
-    function renderThumbGrid(id, values, selectedIndex, selectFn) {
-      document.getElementById(id).innerHTML = values.map((item, index) => `
-        <button class="thumb-card ${index === Number(selectedIndex) ? "active" : ""}" onclick="${selectFn}(${index})">
-          ${item.thumb ? `<img src="${item.thumb}" alt="">` : `<div class="empty">不用</div>`}
-          <span>${item.label || item.value || "未命名"}</span>
-        </button>
-      `).join("");
-    }
-
-    function renderControls() {
-      renderThumbGrid("logo-grid", DATA.logoOptions, state.logoIndex, "selectLogo");
-      renderThumbGrid("ip-grid", DATA.ipOptions, state.ipIndex, "selectIp");
-      document.getElementById("sets").value = state.sets;
-      document.getElementById("fontEnabled").checked = state.fontEnabled;
-      document.getElementById("uiReferenceRequired").checked = state.uiReferenceRequired;
-      document.getElementById("cta").value = state.cta;
-      document.getElementById("notes").value = state.notes;
-      const allowsCta = selectedSlots().some(slot => slot.cta_policy === "optional" || slot.cta_policy === "required");
-      document.getElementById("ctaField").classList.toggle("hidden", !allowsCta);
-    }
-
-    function renderSummary() {
-      const slots = selectedSlots();
-      const logo = selectedLogo();
-      const ip = selectedIp();
-      const items = [
-        ["场景", state.category],
-        ["版位", slots.map(slot => `${slot.platform} · ${slot.name}`).join("；")],
-        ["尺寸", slots.map(slot => `${slot.target_size} ← gpt ${slot.render_size}`).join("；")],
-        ["压缩", slots.map(slot => slot.maxFileSizeKb ? `<${slot.maxFileSizeKb}KB` : "默认 200KB").join("；")],
-        ["Logo", logo.label],
-        ["IP", ip.random ? "随机：每张重新抽取" : ip.label],
-        ["字体参考", state.fontEnabled ? "启用：每张随机抽取" : "不启用"],
-        ["屏幕界面", state.uiReferenceRequired ? "需要：保存后回到 Codex 上传截图" : "不展示可识别 UI"],
-        ["套数", `${state.sets} 套`],
-      ];
-      document.getElementById("summary").innerHTML = items.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("");
-    }
-
-    function clampSets(value) {
-      const parsed = Number.parseInt(value, 10);
-      if (!Number.isFinite(parsed)) return 1;
-      return Math.min(50, Math.max(1, parsed));
-    }
-
-    function selectCategory(category) {
-      state.category = category;
-      renderAll();
-    }
-
-    function toggleSlot(id) {
-      const slot = DATA.slots.find(item => item.id === id);
-      if (!slot || slot.enabled === false) return;
-      if (state.selectedSlotIds.includes(id)) {
-        state.selectedSlotIds = state.selectedSlotIds.filter(item => item !== id);
-      } else {
-        state.selectedSlotIds.push(id);
-      }
-      renderAll();
-    }
-    function selectLogo(index) { state.logoIndex = index; renderAll(); }
-    function selectIp(index) { state.ipIndex = index; renderAll(); }
-
-    function collectResult() {
-      syncState();
-      const slots = selectedSlots();
-      const slot = slots[0];
-      const logo = selectedLogo();
-      const ip = selectedIp();
-      const selectedCategories = [...new Set(slots.map(slot => slot.category || slot.channel).filter(Boolean))];
-      const selectedChannels = [...new Set(slots.map(slot => slot.channel || slot.category).filter(Boolean))];
-      const allowsCta = slots.some(slot => slot.cta_policy === "optional" || slot.cta_policy === "required");
-      return {
-        request_id: DATA.request_id,
-        type: "image_config",
-        generation_mode: "explore",
-        placement_ids: slots.map(slot => slot.id),
-        placements: slots,
-        category: selectedCategories[0] || state.category,
-        categories: selectedCategories,
-        channels: selectedChannels,
-        slot_id: slot.id,
-        platform: slot.platform,
-        placement: slot.name,
-        channel: slot.channel,
-        image_form: slot.imageForm,
-        ratio: slot.target_ratio || slot.ratio,
-        target_width: slot.target_width,
-        target_height: slot.target_height,
-        target_size: slot.target_size,
-        render_width: slot.render_width,
-        render_height: slot.render_height,
-        render_size: slot.render_size,
-        target_kb: slot.maxFileSizeKb || 200,
-        sets: Number(state.sets),
-        logo: logo.value,
-        logo_asset_id: logo.asset_id,
-        logo_reference_path: logo.path,
-        ip: ip.value,
-        ip_random: Boolean(ip.random),
-        ip_asset_id: ip.asset_id,
-        ip_reference_path: ip.path,
-        font_reference_enabled: state.fontEnabled,
-        font_reference_randomized: state.fontEnabled,
-        font_prompt_rule: state.fontEnabled ? "每张图从洋葱专属字体参考中随机抽取；学习字体气质、描边和排版节奏，与当前画面融合；不要求完全一致，不复制参考图里的示例文字。" : "不启用字体参考图。",
-        cta: allowsCta ? state.cta.trim() : "",
-        screen_ui_reference_required: state.uiReferenceRequired,
-        ui_reference_required: state.uiReferenceRequired,
-        ui_reference: state.uiReferenceRequired ? "codex_upload_required" : "none",
-        ui_reference_trigger: state.uiReferenceRequired ? "recognizable_onion_app_screen" : "none",
-        ui_reference_upload_status: state.uiReferenceRequired ? "awaiting_codex_upload" : "not_required",
-        ui_reference_note: state.uiReferenceRequired
-          ? "只有画面包含可识别的手机/学习机/电子屏幕，并需要展示洋葱 APP 功能界面时才需要截图；不要在 HTML 中上传。保存配置后请回到 Codex 对话上传洋葱 APP 应用内截图。Agent 收到截图后才可进入生图流程。"
-          : "本次不展示可识别的洋葱 APP 屏幕 UI；如画面有设备屏幕，应弱化/模糊屏幕内容，不生成具体界面。",
-        ui_reference_next_action: state.uiReferenceRequired ? "请用户在 Codex 对话上传截图；收到截图前不能进入 prompt、validate-only 或 render。若用户不上传截图，只能改成弱化/模糊屏幕内容。" : "",
-        notes: state.notes.trim()
-      };
-    }
-
-    function syncState() {
-      state.sets = clampSets(document.getElementById("sets").value);
-      document.getElementById("sets").value = state.sets;
-      state.fontEnabled = document.getElementById("fontEnabled").checked;
-      state.uiReferenceRequired = document.getElementById("uiReferenceRequired").checked;
-      if (!state.fontEnabled) state.fontRandomIndex = null;
-      state.cta = document.getElementById("cta").value;
-      state.notes = document.getElementById("notes").value;
-      renderSummary();
-    }
-
-    async function submitConfig() {
-      const response = await fetch("/api/image-config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(collectResult())
-      });
-      const payload = await response.json();
-      document.getElementById("status").textContent = payload.ok ? `已保存：${payload.path}` : `保存失败：${payload.error}`;
-    }
-
-    async function copyResult() {
-      await navigator.clipboard.writeText(JSON.stringify(collectResult(), null, 2));
-      document.getElementById("status").textContent = "配置 JSON 已复制";
-    }
-
-    function renderAll() {
-      renderCategories();
-      renderSlots();
-      renderControls();
-      renderSummary();
-      ["sets", "fontEnabled", "uiReferenceRequired", "cta", "notes"].forEach(id => {
-        document.getElementById(id).oninput = syncState;
-        document.getElementById(id).onchange = syncState;
-      });
-    }
-    renderAll();
-  </script>
-</body>
-</html>"""
+    template = CONFIG_TEMPLATE.read_text(encoding="utf-8")
     return template.replace("__REQUEST_ID__", request_id).replace("__DATA_JSON__", data_json)
 
 
@@ -1132,7 +807,7 @@ class OnionInteractionHandler(SimpleHTTPRequestHandler):
             else:
                 output_path = self.server.output_dir / output_names[parsed.path]  # type: ignore[attr-defined]
                 if parsed.path == "/api/image-config":
-                    data = normalize_config_result(data, slots_by_id(self.server.platform_rules))  # type: ignore[attr-defined]
+                    data = normalize_config_result(data, slots_by_id(self.server.platform_rules, self.server.context))  # type: ignore[attr-defined]
                 atomic_write_json(output_path, data)
                 response = {"ok": True, "path": str(output_path), "result": data}
             self.send_json(response)
@@ -1181,13 +856,13 @@ def parse_context(value: str | None) -> dict[str, Any]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run local Onion image interaction server.")
     parser.add_argument("--request-id", required=True)
-    parser.add_argument("--output-dir", required=True)
+    parser.add_argument("--output-dir", help="Defaults to the portable onion output root for this request.")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--context", help="JSON string or JSON file path with upstream copy/direction context")
     parser.add_argument("--platform-rules", help="placement rules JSON path; defaults to plugin config/channel-placement-rules.json")
     args = parser.parse_args(argv)
 
-    output_dir = Path(args.output_dir).expanduser()
+    output_dir = Path(args.output_dir).expanduser() if args.output_dir else request_output_dir(args.request_id)
     port = find_free_port(args.port)
     platform_rules = Path(args.platform_rules).expanduser() if args.platform_rules else DEFAULT_CHANNEL_RULES
     if not platform_rules.exists():

@@ -33,7 +33,28 @@
       "id": 4,
       "name": "iterate-result-must-use-selection-page-before-base",
       "prompt": "G-005 扩同类 3 套，生成完我选通过的再入库。",
-      "expected_output": "AI 应回查 G-005 并保留父图组血缘，按扩同类生成 3 套候选。成图后必须进入选择页或同结构标注流程，读取 image-selection-result.json 或用户粘贴的同结构 JSON；只有 accepted_schemes 能写入 Base，rejected/pending 不上传。写入 image_groups 前先打包采纳图，基于 G-005 的新图组必须写父图组。",
+      "expected_output": "AI 应回查 G-005 并保留父图组血缘，按扩同类生成 3 套候选。成图后必须进入选择页或同结构标注流程，用户提交后读取本地 image-selection-result.json；只有 accepted_schemes 能写入 Base，rejected/pending 不上传。写入 image_groups 前先打包采纳图，基于 G-005 的新图组必须写父图组。",
+      "files": []
+    },
+    {
+      "id": 5,
+      "name": "ambiguous-upload-role-asks-before-routing",
+      "prompt": "我上传了一张图，帮我出几套类似的。",
+      "expected_output": "AI 不应猜这张图是旧广告图、竞品参考还是风格/构图参考。应先追问图片角色：这是我们旧广告图要改，还是竞品/外部参考、构图/风格参考、IP 参考，或 APP 截图？角色确认前不进入 render.py，不写父图组。",
+      "files": []
+    },
+    {
+      "id": 6,
+      "name": "competitor-reference-does-not-write-parent-group",
+      "prompt": "参考这张作业帮广告图的版式，给洋葱拍题精学做 3 套。",
+      "expected_output": "AI 应把上传图识别为竞品/外部参考图或构图参考图，而不是自有旧广告图锚点。不写父图组，不要求 G-ID，不复刻作业帮品牌、UI、人物或文案；只抽象参考构图、信息层级、节奏后重新创作。",
+      "files": []
+    },
+    {
+      "id": 7,
+      "name": "three-image-set-expands-with-one-main-config",
+      "prompt": "我上传了三张跑得好的应用商店三图，这组三图同类扩 5 套，IP 随机。",
+      "expected_output": "AI 应把三张图识别为一套三图基准，而不是三份独立配置。先打开或整理继承型配置卡：generation_mode=iterate，iteration_mode=expand_similar，继承原三图形式和版位，一套图只有一份主配置；仅在 per_image_notes 中记录图1/图2/图3差异。扩出来 5 套完整三图，成图后统一进入选择页。",
       "files": []
     }
   ]

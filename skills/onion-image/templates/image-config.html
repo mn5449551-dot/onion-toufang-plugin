@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>洋葱投放图片配置 - __REQUEST_ID__</title>
+  <style>
+    :root {
+      --ink: #1e2329;
+      --body: #3f454d;
+      --muted: #7d8791;
+      --line: #dfe3e8;
+      --soft: #f6f7f9;
+      --panel: #ffffff;
+      --accent: #e8835a;
+      --accent-soft: #fff3ed;
+      --ok: #2f7d32;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+      background: var(--soft);
+      color: var(--body);
+      font-size: 14px;
+    }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 22px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+    h1 { margin: 0; font-size: 18px; color: var(--ink); }
+    .request { color: var(--muted); font-size: 12px; }
+    main {
+      width: min(1280px, calc(100vw - 32px));
+      margin: 16px auto 96px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 380px;
+      gap: 16px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .panel h2 { margin: 0 0 12px; font-size: 15px; color: var(--ink); }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 10px;
+    }
+    .tab {
+      border: 1px solid var(--line);
+      background: white;
+      border-radius: 6px;
+      padding: 8px 14px;
+      cursor: pointer;
+      color: var(--ink);
+      font: inherit;
+    }
+    .tab.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .slot-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 10px;
+    }
+    .option {
+      text-align: left;
+      border: 1px solid var(--line);
+      background: white;
+      border-radius: 8px;
+      padding: 12px;
+      cursor: pointer;
+      min-height: 96px;
+    }
+    .option:hover { border-color: var(--accent); }
+    .option.active { border-color: var(--accent); background: var(--accent-soft); }
+    .option.disabled { opacity: 0.48; cursor: not-allowed; background: #f1f3f5; }
+    .option.disabled:hover { border-color: var(--line); }
+    .option strong { display: block; color: var(--ink); margin-bottom: 4px; }
+    .option span { display: block; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .badges { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+    .badge { border: 1px solid var(--line); border-radius: 999px; padding: 2px 7px; color: var(--muted); font-size: 11px; }
+    label { display: block; margin: 0 0 6px; color: var(--ink); font-size: 13px; }
+    input, textarea, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 9px 10px;
+      font: inherit;
+      background: white;
+      color: var(--body);
+    }
+    textarea { min-height: 86px; resize: vertical; }
+    .field { margin-bottom: 16px; }
+    .check-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .check-grid label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px;
+      background: white;
+      color: var(--body);
+    }
+    .check-grid input { width: auto; }
+    .hint { color: var(--muted); font-size: 12px; margin-top: 5px; line-height: 1.5; }
+    .thumb-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .thumb-card {
+      border: 1px solid var(--line);
+      background: white;
+      border-radius: 8px;
+      min-height: 112px;
+      padding: 8px;
+      cursor: pointer;
+      display: grid;
+      grid-template-rows: 64px auto;
+      gap: 6px;
+      align-items: center;
+      text-align: center;
+      color: var(--body);
+      font: inherit;
+    }
+    .thumb-card.active { border-color: var(--accent); background: var(--accent-soft); }
+    .thumb-card img {
+      max-width: 100%;
+      max-height: 64px;
+      object-fit: contain;
+      margin: 0 auto;
+      display: block;
+    }
+    .thumb-card .empty {
+      height: 64px;
+      display: grid;
+      place-items: center;
+      border: 1px dashed var(--line);
+      border-radius: 6px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .thumb-card span {
+      font-size: 12px;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+    .switch-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: white;
+    }
+    .switch-row input { width: auto; }
+    .summary-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .summary-list div {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 8px;
+    }
+    .summary-list dt { color: var(--muted); }
+    .summary-list dd { margin: 0; color: var(--ink); text-align: right; }
+    .actions {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 12px 22px;
+      background: rgba(255,255,255,0.96);
+      border-top: 1px solid var(--line);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    button.primary {
+      border: 1px solid var(--accent);
+      background: var(--accent);
+      color: white;
+      border-radius: 6px;
+      padding: 10px 18px;
+      font: inherit;
+      cursor: pointer;
+    }
+    button.secondary {
+      border: 1px solid var(--line);
+      background: white;
+      color: var(--ink);
+      border-radius: 6px;
+      padding: 10px 18px;
+      font: inherit;
+      cursor: pointer;
+    }
+    .status { margin-right: auto; color: var(--muted); align-self: center; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1 id="page-title">图片生成配置</h1>
+    <span class="request">Request __REQUEST_ID__</span>
+  </div>
+  <main>
+    <section class="panel">
+      <h2>投放场景</h2>
+      <div id="category-tabs" class="tabs"></div>
+      <h2>具体版位</h2>
+      <div class="hint">可多选。用户只选版位，不选尺寸；卡片内展示目标尺寸、gpt 出图尺寸、压缩上限和一期支持状态。</div>
+      <div id="slot-grid" class="slot-grid"></div>
+    </section>
+    <aside class="panel">
+      <h2>配置</h2>
+      <div id="iterationPanel" class="field hidden">
+        <label for="iterationMode">迭代模式</label>
+        <select id="iterationMode">
+          <option value="tweak">小改一下</option>
+          <option value="expand_similar">同类多来几套</option>
+          <option value="reframe">换形式重做</option>
+        </select>
+        <div class="hint">默认继承原图配置，只声明这次变化；换形式才重新确认新版位和信息分工。</div>
+        <label for="uploadedImageRole">上传图 / 基准图角色</label>
+        <select id="uploadedImageRole">
+          <option value="owned_old_ad">自有旧广告图</option>
+          <option value="competitor_reference">竞品/外部参考</option>
+          <option value="layout_reference">构图/版式参考</option>
+          <option value="style_reference">风格参考</option>
+          <option value="ip_reference">IP 参考</option>
+          <option value="screen_ui_reference">APP 界面截图</option>
+          <option value="unknown">不确定，回到对话追问</option>
+        </select>
+        <div class="hint">角色不清时不要继续生图；回到对话确认后再保存配置。</div>
+        <label>改动轴</label>
+        <div class="check-grid">
+          <label><input class="change-axis" type="checkbox" value="copy">文案</label>
+          <label><input class="change-axis" type="checkbox" value="cta">CTA</label>
+          <label><input class="change-axis" type="checkbox" value="ip">IP</label>
+          <label><input class="change-axis" type="checkbox" value="scene">场景</label>
+          <label><input class="change-axis" type="checkbox" value="layout">构图</label>
+          <label><input class="change-axis" type="checkbox" value="placement">版位</label>
+        </div>
+        <label for="perImageNotes">单图差异说明</label>
+        <textarea id="perImageNotes" placeholder="双图/三图才需要，例如：图1保留钩子；图2换人物；图3改 CTA。"></textarea>
+      </div>
+      <div class="field">
+        <label for="sets">套数</label>
+        <input id="sets" type="number" min="1" max="50" step="1">
+        <div class="hint">手动输入，最多 50 套；大批量会分批生成和刷新。</div>
+      </div>
+      <div class="field">
+        <label>Logo</label>
+        <div id="logo-grid" class="thumb-grid"></div>
+      </div>
+      <div class="field">
+        <label>IP</label>
+        <div id="ip-grid" class="thumb-grid"></div>
+        <div class="hint">选择“随机 IP”时，每个版位/每套图都由 Agent 从本地 IP 资产中重新抽取，不锁定同一个角色。</div>
+      </div>
+      <div class="field">
+        <label for="font">字体参考</label>
+        <label class="switch-row">
+          <span>启用洋葱专属字体参考</span>
+          <input id="fontEnabled" type="checkbox" checked>
+        </label>
+        <div class="hint">启用后生成时从字体参考库完全随机抽取，不需要人工选择具体哪张。</div>
+      </div>
+      <div id="ctaField" class="field hidden">
+        <label for="cta">CTA</label>
+        <input id="cta" placeholder="仅信息流填写，例如：立即体验 / 现在下载">
+      </div>
+      <div class="field">
+        <label>界面 / 功能参考图</label>
+        <label class="switch-row">
+          <span>画面需要展示洋葱 APP 界面/功能截图</span>
+          <input id="uiReferenceRequired" type="checkbox">
+        </label>
+        <div class="hint">只有最终画面里有手机、学习机或其它电子屏幕，并且屏幕要显示可识别的洋葱 APP 功能界面时才勾选。不要在 HTML 里上传；保存后请回到 Codex 上传截图。若不展示具体 UI，可不勾选并让 Agent 弱化/模糊屏幕内容。</div>
+      </div>
+      <div class="field">
+        <label for="notes">补充说明</label>
+        <textarea id="notes" placeholder="填写生图建议，例如：更像应用商店截图、不要太信息流、文字更少、人物更靠右。"></textarea>
+      </div>
+      <h2>摘要</h2>
+      <dl id="summary" class="summary-list"></dl>
+    </aside>
+  </main>
+  <div class="actions">
+    <span id="status" class="status"></span>
+    <button class="primary" onclick="submitConfig()">保存配置</button>
+  </div>
+  <script>
+    const DATA = __DATA_JSON__;
+    const state = {
+      generationMode: DATA.generationMode || DATA.context?.generation_mode || "explore",
+      category: DATA.desiredChannels?.[0] || DATA.categories?.[0] || DATA.slots[0]?.channel || "应用商店",
+      selectedSlotIds: [],
+      sets: 2,
+      logoIndex: Math.min(1, Math.max(DATA.logoOptions.length - 1, 0)),
+      ipIndex: 0,
+      fontEnabled: true,
+      uiReferenceRequired: false,
+      iterationMode: DATA.context?.iteration_mode || "expand_similar",
+      uploadedImageRole: DATA.context?.uploaded_image_role || "unknown",
+      changeAxes: DATA.context?.change_axes || [],
+      perImageNotes: "",
+      cta: "",
+      notes: ""
+    };
+
+    function slotsForCategory() { return DATA.slots.filter(slot => slot.channel === state.category || slot.category === state.category); }
+    function enabledSlots() { return DATA.slots.filter(slot => slot.enabled !== false); }
+    function selectedSlots() {
+      const byId = Object.fromEntries(DATA.slots.map(slot => [slot.id, slot]));
+      state.selectedSlotIds = state.selectedSlotIds.filter(id => byId[id]?.enabled !== false);
+      return state.selectedSlotIds.map(id => byId[id]).filter(Boolean);
+    }
+    function selectedLogo() { return DATA.logoOptions[Number(state.logoIndex)] || DATA.logoOptions[0]; }
+    function selectedIp() { return DATA.ipOptions[Number(state.ipIndex)] || DATA.ipOptions[0]; }
+
+    function renderCategories() {
+      const tabs = document.getElementById("category-tabs");
+      tabs.innerHTML = DATA.categories.map(category => `
+        <button class="tab ${category === state.category ? "active" : ""}" onclick="selectCategory('${category}')">${category}</button>
+      `).join("");
+    }
+
+    function renderSlots() {
+      const grid = document.getElementById("slot-grid");
+      const slots = slotsForCategory();
+      selectedSlots();
+      grid.innerHTML = slots.map(slot => `
+        <button class="option ${state.selectedSlotIds.includes(slot.id) ? "active" : ""} ${slot.enabled === false ? "disabled" : ""}" onclick="toggleSlot('${slot.id}')" ${slot.enabled === false ? "disabled" : ""}>
+          <strong>${slot.platform} · ${slot.name}</strong>
+          <span>${slot.sub_channel || ""}</span>
+          <span>目标 ${slot.target_size || "-"} / gpt ${slot.render_size || "-"} / &lt;${slot.maxFileSizeKb || "-"}KB</span>
+          <span>${slot.imageForm} / ${slot.directness_label || slot.directness || ""}</span>
+          ${slot.disabled_reason ? `<span>暂不可选：${slot.disabled_reason}</span>` : ""}
+          <div class="badges">
+            <span class="badge">target_size</span>
+            <span class="badge">render_size</span>
+            <span class="badge">disabled_reason</span>
+          </div>
+        </button>
+      `).join("");
+    }
+
+    function renderThumbGrid(id, values, selectedIndex, selectFn) {
+      document.getElementById(id).innerHTML = values.map((item, index) => `
+        <button class="thumb-card ${index === Number(selectedIndex) ? "active" : ""}" onclick="${selectFn}(${index})">
+          ${item.thumb ? `<img src="${item.thumb}" alt="">` : `<div class="empty">不用</div>`}
+          <span>${item.label || item.value || "未命名"}</span>
+        </button>
+      `).join("");
+    }
+
+    function renderControls() {
+      document.getElementById("page-title").textContent = state.generationMode === "iterate" ? "图片迭代配置" : "图片生成配置";
+      document.getElementById("iterationPanel").classList.toggle("hidden", state.generationMode !== "iterate");
+      document.getElementById("iterationMode").value = state.iterationMode;
+      document.getElementById("uploadedImageRole").value = state.uploadedImageRole;
+      document.getElementById("perImageNotes").value = state.perImageNotes;
+      document.querySelectorAll(".change-axis").forEach(input => {
+        input.checked = state.changeAxes.includes(input.value);
+      });
+      renderThumbGrid("logo-grid", DATA.logoOptions, state.logoIndex, "selectLogo");
+      renderThumbGrid("ip-grid", DATA.ipOptions, state.ipIndex, "selectIp");
+      document.getElementById("sets").value = state.sets;
+      document.getElementById("fontEnabled").checked = state.fontEnabled;
+      document.getElementById("uiReferenceRequired").checked = state.uiReferenceRequired;
+      document.getElementById("cta").value = state.cta;
+      document.getElementById("notes").value = state.notes;
+      const allowsCta = selectedSlots().some(slot => slot.cta_policy === "optional" || slot.cta_policy === "required");
+      document.getElementById("ctaField").classList.toggle("hidden", !allowsCta);
+    }
+
+    function renderSummary() {
+      const slots = selectedSlots();
+      const logo = selectedLogo();
+      const ip = selectedIp();
+      const items = [
+        ["场景", state.category],
+        ["版位", slots.length ? slots.map(slot => `${slot.platform} · ${slot.name}`).join("；") : "请先选择至少一个版位"],
+        ["尺寸", slots.length ? slots.map(slot => `${slot.target_size} ← gpt ${slot.render_size}`).join("；") : "-"],
+        ["压缩", slots.length ? slots.map(slot => slot.maxFileSizeKb ? `<${slot.maxFileSizeKb}KB` : "默认 200KB").join("；") : "-"],
+        ["Logo", logo.label],
+        ["IP", ip.random ? "随机：每张重新抽取" : ip.label],
+        ["模式", state.generationMode === "iterate" ? state.iterationMode : "explore"],
+        ["字体参考", state.fontEnabled ? "启用：每张随机抽取" : "不启用"],
+        ["屏幕界面", state.uiReferenceRequired ? "需要：保存后回到 Codex 上传截图" : "不展示可识别 UI"],
+        ["套数", `${state.sets} 套`],
+      ];
+      document.getElementById("summary").innerHTML = items.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("");
+    }
+
+    function clampSets(value) {
+      const parsed = Number.parseInt(value, 10);
+      if (!Number.isFinite(parsed)) return 1;
+      return Math.min(50, Math.max(1, parsed));
+    }
+
+    function selectCategory(category) {
+      state.category = category;
+      renderAll();
+    }
+
+    function toggleSlot(id) {
+      const slot = DATA.slots.find(item => item.id === id);
+      if (!slot || slot.enabled === false) return;
+      if (state.selectedSlotIds.includes(id)) {
+        state.selectedSlotIds = state.selectedSlotIds.filter(item => item !== id);
+      } else {
+        state.selectedSlotIds.push(id);
+      }
+      renderAll();
+    }
+    function selectLogo(index) { state.logoIndex = index; renderAll(); }
+    function selectIp(index) { state.ipIndex = index; renderAll(); }
+
+    function collectResult() {
+      syncState();
+      const slots = selectedSlots();
+      if (!slots.length) throw new Error("请先选择至少一个版位");
+      const slot = slots[0];
+      const logo = selectedLogo();
+      const ip = selectedIp();
+      const selectedCategories = [...new Set(slots.map(slot => slot.category || slot.channel).filter(Boolean))];
+      const selectedChannels = [...new Set(slots.map(slot => slot.channel || slot.category).filter(Boolean))];
+      const allowsCta = slots.some(slot => slot.cta_policy === "optional" || slot.cta_policy === "required");
+      return {
+        request_id: DATA.request_id,
+        type: "image_config",
+        generation_mode: state.generationMode,
+        iteration_mode: state.generationMode === "iterate" ? state.iterationMode : undefined,
+        uploaded_image_role: state.generationMode === "iterate" ? state.uploadedImageRole : undefined,
+        base: state.generationMode === "iterate" ? {
+          source: DATA.context?.image_group_id ? "base_group" : "uploaded_images",
+          image_group_id: DATA.context?.image_group_id || "",
+          image_group_record_id: DATA.context?.image_group_record_id || "",
+          image_form: DATA.context?.image_form || "",
+          image_count: DATA.context?.image_count || slots.length || 1
+        } : undefined,
+        inherit: state.generationMode === "iterate" ? {
+          placement: !state.changeAxes.includes("placement"),
+          image_form: state.iterationMode !== "reframe",
+          logo: !state.changeAxes.includes("logo"),
+          ip: !state.changeAxes.includes("ip"),
+          cta: !state.changeAxes.includes("cta"),
+          style: !state.changeAxes.includes("layout"),
+          copy: !state.changeAxes.includes("copy")
+        } : undefined,
+        change_axes: state.generationMode === "iterate" ? state.changeAxes : undefined,
+        per_image_notes: state.generationMode === "iterate" && state.perImageNotes.trim() ? { notes: state.perImageNotes.trim() } : undefined,
+        placement_ids: slots.map(slot => slot.id),
+        placements: slots,
+        category: selectedCategories[0] || state.category,
+        categories: selectedCategories,
+        channels: selectedChannels,
+        slot_id: slot.id,
+        platform: slot.platform,
+        placement: slot.name,
+        channel: slot.channel,
+        image_form: slot.imageForm,
+        ratio: slot.target_ratio || slot.ratio,
+        target_width: slot.target_width,
+        target_height: slot.target_height,
+        target_size: slot.target_size,
+        render_width: slot.render_width,
+        render_height: slot.render_height,
+        render_size: slot.render_size,
+        target_kb: slot.maxFileSizeKb || 200,
+        sets: Number(state.sets),
+        logo: logo.value,
+        logo_asset_id: logo.asset_id,
+        logo_reference_path: logo.path,
+        ip: ip.value,
+        ip_random: Boolean(ip.random),
+        ip_asset_id: ip.asset_id,
+        ip_reference_path: ip.path,
+        font_reference_enabled: state.fontEnabled,
+        font_reference_randomized: state.fontEnabled,
+        font_prompt_rule: state.fontEnabled ? "每张图从洋葱专属字体参考中随机抽取；学习字体气质、描边和排版节奏，与当前画面融合；不要求完全一致，不复制参考图里的示例文字。" : "不启用字体参考图。",
+        cta: allowsCta ? state.cta.trim() : "",
+        screen_ui_reference_required: state.uiReferenceRequired,
+        ui_reference_required: state.uiReferenceRequired,
+        ui_reference: state.uiReferenceRequired ? "codex_upload_required" : "none",
+        ui_reference_trigger: state.uiReferenceRequired ? "recognizable_onion_app_screen" : "none",
+        ui_reference_upload_status: state.uiReferenceRequired ? "awaiting_codex_upload" : "not_required",
+        ui_reference_note: state.uiReferenceRequired
+          ? "只有画面包含可识别的手机/学习机/电子屏幕，并需要展示洋葱 APP 功能界面时才需要截图；不要在 HTML 中上传。保存配置后请回到 Codex 对话上传洋葱 APP 应用内截图。Agent 收到截图后才可进入生图流程。"
+          : "本次不展示可识别的洋葱 APP 屏幕 UI；如画面有设备屏幕，应弱化/模糊屏幕内容，不生成具体界面。",
+        ui_reference_next_action: state.uiReferenceRequired ? "请用户在 Codex 对话上传截图；收到截图前不能进入 prompt、validate-only 或 render。若用户不上传截图，只能改成弱化/模糊屏幕内容。" : "",
+        notes: state.notes.trim()
+      };
+    }
+
+    function syncState() {
+      state.sets = clampSets(document.getElementById("sets").value);
+      document.getElementById("sets").value = state.sets;
+      state.fontEnabled = document.getElementById("fontEnabled").checked;
+      state.uiReferenceRequired = document.getElementById("uiReferenceRequired").checked;
+      state.iterationMode = document.getElementById("iterationMode").value;
+      state.uploadedImageRole = document.getElementById("uploadedImageRole").value;
+      state.changeAxes = Array.from(document.querySelectorAll(".change-axis:checked")).map(input => input.value);
+      state.perImageNotes = document.getElementById("perImageNotes").value;
+      if (!state.fontEnabled) state.fontRandomIndex = null;
+      state.cta = document.getElementById("cta").value;
+      state.notes = document.getElementById("notes").value;
+      renderSummary();
+    }
+
+    async function submitConfig() {
+      try {
+        const response = await fetch("/api/image-config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(collectResult())
+        });
+        const payload = await response.json();
+        document.getElementById("status").textContent = payload.ok
+          ? `配置已保存：${payload.path}。请回到 Codex 回复：好了。`
+          : `保存失败：${payload.error}`;
+      } catch (error) {
+        document.getElementById("status").textContent = `保存失败，请确认本地服务仍在运行后重试：${error.message}`;
+      }
+    }
+
+    function renderAll() {
+      renderCategories();
+      renderSlots();
+      renderControls();
+      renderSummary();
+      ["sets", "fontEnabled", "uiReferenceRequired", "iterationMode", "uploadedImageRole", "perImageNotes", "cta", "notes"].forEach(id => {
+        document.getElementById(id).oninput = syncState;
+        document.getElementById(id).onchange = syncState;
+      });
+      document.querySelectorAll(".change-axis").forEach(input => {
+        input.oninput = syncState;
+        input.onchange = syncState;
+      });
+    }
+    renderAll();
+  </script>
+</body>
+</html>

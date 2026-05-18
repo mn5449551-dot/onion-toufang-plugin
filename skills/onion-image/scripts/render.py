@@ -8,7 +8,7 @@ Single image mode is the production path used by the onion-image skills:
     --prompt "<prompt>" \
     --size 1568x672 \
     --reference assets/logos/onion-logo-standard-001.png \
-    --output /tmp/onion-ad/<request_id>/set1_img1.png
+    --output <output-dir>/set1_img1.png
 
 Use --validate-only to check prompt, aspect ratio, output path and reference
 paths without requiring LAOZHANG_API_KEY or calling the paid API.
