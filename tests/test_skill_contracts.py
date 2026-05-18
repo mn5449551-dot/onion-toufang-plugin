@@ -116,7 +116,7 @@ class SkillContractTests(unittest.TestCase):
     def test_image_visual_config_preview_and_write_contracts_are_explicit(self):
         text = (PLUGIN_ROOT / "skills" / "onion-image" / "SKILL.md").read_text(encoding="utf-8")
 
-        self.assertIn("Logo、CTA、IP 或界面/功能参考图", text)
+        self.assertIn("未指定 Logo、CTA 或 IP", text)
         self.assertIn("不要直接默认信息流竖版", text)
         self.assertIn("确认 `LAOZHANG_API_KEY` 存在且不是占位符", text)
         self.assertIn("成图后必须进入 `templates/image-selection.html` 选择页", text)
@@ -137,6 +137,11 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("字体参考只有启用 / 不启用", text)
         self.assertIn("CTA 按具体版位的 `cta_policy` 显示", text)
         self.assertIn("不在 HTML 里上传", text)
+        self.assertIn("不是独立入口", text)
+        self.assertIn("手机、平板、电脑、学习机、投影屏、电子屏幕", text)
+        self.assertIn("可识别的洋葱 APP/学习界面屏幕内容", text)
+        self.assertIn("弱化/模糊屏幕内容", text)
+        self.assertIn("screen_ui_reference_required=true", text)
         self.assertIn("ui_reference_required=true", text)
         self.assertIn("必须提醒用户回到 Codex 对话上传截图", text)
         self.assertIn("没有收到截图前不能进入 prompt、validate-only 或 render", text)
@@ -184,6 +189,7 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("转 `onion-image-iterate`", image)
         self.assertIn("用户上传旧图", iterate)
         self.assertIn("换文案、换角色、扩同类", iterate)
+        self.assertIn("如果要新增或替换可识别的洋葱 APP/学习界面屏幕内容", iterate)
         self.assertIn("方向 ID 不能直接跳到图", readme)
 
         direction_eval = next(item for item in image_evals["evals"] if item["id"] == 5)
@@ -194,6 +200,7 @@ class SkillContractTests(unittest.TestCase):
         upload_eval = next(item for item in image_evals["evals"] if item["id"] == 7)
         self.assertIn("转 onion-image-iterate", upload_eval["expected_output"])
         ui_eval = next(item for item in image_evals["evals"] if item["id"] == 17)
+        self.assertIn("screen_ui_reference_required=true", ui_eval["expected_output"])
         self.assertIn("ui_reference_required=true", ui_eval["expected_output"])
         self.assertIn("先提醒用户在 Codex 对话上传截图", ui_eval["expected_output"])
         self.assertIn("不能进入 render.py", ui_eval["expected_output"])

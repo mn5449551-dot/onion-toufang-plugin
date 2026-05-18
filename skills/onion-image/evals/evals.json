@@ -103,7 +103,7 @@
       "id": 14,
       "name": "config-page-groups-placement-and-uses-thumbnail-assets",
       "prompt": "C-001 要先配图片参数，我要自己选应用商店还是信息流，Logo 和 IP 要看图，字体不用选具体哪张。",
-      "expected_output": "AI 应启动 image-config 页面。页面左侧先按应用商店 / 学习机 / 信息流 / 百度分大类，再显示该大类下具体版位；已选版位跨大类保留，允许同一文案选择多个渠道/版位。套数为 1-50 的手动数字输入。Logo 和 IP 从 asset-manifest 读取并显示本地缩略图，IP 有随机选项。字体参考只提供启用/不启用；启用后每张图随机抽取 font-references 中一张。CTA 按具体版位 policy 显示；界面或功能参考图应提示用户在 Codex 对话上传截图，不在 HTML 内上传。保存结果 generation_mode=explore。",
+      "expected_output": "AI 应启动 image-config 页面。页面左侧先按应用商店 / 学习机 / 信息流 / 百度分大类，再显示该大类下具体版位；已选版位跨大类保留，允许同一文案选择多个渠道/版位。套数为 1-50 的手动数字输入。Logo 和 IP 从 asset-manifest 读取并显示本地缩略图，IP 有随机选项。字体参考只提供启用/不启用；启用后每张图随机抽取 font-references 中一张。CTA 按具体版位 policy 显示；界面或功能截图不是独立入口，只有最终画面会出现手机、学习机或其它电子屏幕，并且屏幕要展示可识别的洋葱 APP/学习界面时才勾选；截图不在 HTML 内上传，保存后回到 Codex 对话上传。保存结果 generation_mode=explore。",
       "files": []
     },
     {
@@ -124,7 +124,7 @@
       "id": 17,
       "name": "ui-reference-checkbox-blocks-render-until-codex-upload",
       "prompt": "我在图片配置页勾选了需要界面/功能截图参考，然后复制回来的 JSON 里 ui_reference_required=true。",
-      "expected_output": "AI 应识别配置 JSON 中的 ui_reference_required=true，说明本次需要界面参考图。应先提醒用户在 Codex 对话上传截图，并说明最好上传洋葱 APP 应用内界面/功能截图；在收到截图前不能进入 render.py，也不能生成 prompt、validate-only 或付费生图。收到截图后，把截图作为 reference_images 加入，并在 prompt 的参考图说明里标注界面/功能截图用途。",
+      "expected_output": "AI 应识别配置 JSON 中的 screen_ui_reference_required=true / ui_reference_required=true，说明本次画面需要展示可识别的洋葱 APP/学习界面屏幕内容。应先提醒用户在 Codex 对话上传截图，并说明最好上传洋葱 APP 应用内界面/功能截图；在收到截图前不能进入 render.py，也不能生成 prompt、validate-only 或付费生图。如果用户不上传截图，只能改成弱化/模糊屏幕内容。收到截图后，把截图作为 reference_images 加入，并在 prompt 的参考图说明里标注界面/功能截图用途。",
       "files": []
     }
   ]

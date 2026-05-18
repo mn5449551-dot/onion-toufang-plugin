@@ -553,13 +553,22 @@ def normalize_config_result(body: dict[str, Any], slot_map: dict[str, dict[str, 
     result["sets"] = max(1, min(50, int(body.get("sets") or 1)))
     result["ip_random"] = bool(body.get("ip_random") or body.get("ip") == "随机")
     result["font_reference_randomized"] = bool(body.get("font_reference_enabled", body.get("fontEnabled", True)))
-    result["ui_reference_required"] = bool(body.get("ui_reference_required") or body.get("uiReferenceRequired"))
+    screen_ui_required = bool(
+        body.get("screen_ui_reference_required")
+        or body.get("screenUiReferenceRequired")
+        or body.get("ui_reference_required")
+        or body.get("uiReferenceRequired")
+    )
+    result["screen_ui_reference_required"] = screen_ui_required
+    result["ui_reference_required"] = screen_ui_required
     if result["ui_reference_required"]:
         result["ui_reference"] = "codex_upload_required"
+        result["ui_reference_trigger"] = "recognizable_onion_app_screen"
         result["ui_reference_upload_status"] = body.get("ui_reference_upload_status") or "awaiting_codex_upload"
-        result["ui_reference_next_action"] = "保存配置后先提醒用户在 Codex 对话上传截图，建议上传洋葱 APP 界面/功能截图；收到截图前不能进入 prompt、validate-only 或 render。"
+        result["ui_reference_next_action"] = "保存配置后先提醒用户在 Codex 对话上传截图，建议上传洋葱 APP 界面/功能截图；如果没有截图，只能改成弱化/模糊屏幕内容后继续。收到截图前不能进入 prompt、validate-only 或 render。"
     else:
         result["ui_reference"] = "none"
+        result["ui_reference_trigger"] = "none"
         result["ui_reference_upload_status"] = "not_required"
         result["ui_reference_next_action"] = ""
     return result
@@ -823,10 +832,10 @@ def build_config_html(payload: dict[str, Any]) -> str:
       <div class="field">
         <label>界面 / 功能参考图</label>
         <label class="switch-row">
-          <span>需要界面/功能截图参考</span>
+          <span>画面需要展示洋葱 APP 界面/功能截图</span>
           <input id="uiReferenceRequired" type="checkbox">
         </label>
-        <div class="hint">不要在 HTML 里上传。需要洋葱 APP 应用内截图时，勾选后保存配置；保存后请回到 Codex 上传截图，Agent 收到截图后才会进入生图流程。</div>
+        <div class="hint">只有最终画面里有手机、学习机或其它电子屏幕，并且屏幕要显示可识别的洋葱 APP 功能界面时才勾选。不要在 HTML 里上传；保存后请回到 Codex 上传截图。若不展示具体 UI，可不勾选并让 Agent 弱化/模糊屏幕内容。</div>
       </div>
       <div class="field">
         <label for="notes">补充说明</label>
@@ -929,7 +938,7 @@ def build_config_html(payload: dict[str, Any]) -> str:
         ["Logo", logo.label],
         ["IP", ip.random ? "随机：每张重新抽取" : ip.label],
         ["字体参考", state.fontEnabled ? "启用：每张随机抽取" : "不启用"],
-        ["界面截图", state.uiReferenceRequired ? "需要：保存后回到 Codex 上传" : "不需要"],
+        ["屏幕界面", state.uiReferenceRequired ? "需要：保存后回到 Codex 上传截图" : "不展示可识别 UI"],
         ["套数", `${state.sets} 套`],
       ];
       document.getElementById("summary").innerHTML = items.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("");
@@ -1002,13 +1011,15 @@ def build_config_html(payload: dict[str, Any]) -> str:
         font_reference_randomized: state.fontEnabled,
         font_prompt_rule: state.fontEnabled ? "每张图从洋葱专属字体参考中随机抽取；学习字体气质、描边和排版节奏，与当前画面融合；不要求完全一致，不复制参考图里的示例文字。" : "不启用字体参考图。",
         cta: allowsCta ? state.cta.trim() : "",
+        screen_ui_reference_required: state.uiReferenceRequired,
         ui_reference_required: state.uiReferenceRequired,
         ui_reference: state.uiReferenceRequired ? "codex_upload_required" : "none",
+        ui_reference_trigger: state.uiReferenceRequired ? "recognizable_onion_app_screen" : "none",
         ui_reference_upload_status: state.uiReferenceRequired ? "awaiting_codex_upload" : "not_required",
         ui_reference_note: state.uiReferenceRequired
-          ? "界面/功能参考图不要在 HTML 中上传；保存配置后请回到 Codex 对话上传洋葱 APP 应用内截图。Agent 收到截图后才可进入生图流程。"
-          : "本次不需要界面/功能参考图。",
-        ui_reference_next_action: state.uiReferenceRequired ? "请用户在 Codex 对话上传截图；收到截图前不能进入 prompt、validate-only 或 render。" : "",
+          ? "只有画面包含可识别的手机/学习机/电子屏幕，并需要展示洋葱 APP 功能界面时才需要截图；不要在 HTML 中上传。保存配置后请回到 Codex 对话上传洋葱 APP 应用内截图。Agent 收到截图后才可进入生图流程。"
+          : "本次不展示可识别的洋葱 APP 屏幕 UI；如画面有设备屏幕，应弱化/模糊屏幕内容，不生成具体界面。",
+        ui_reference_next_action: state.uiReferenceRequired ? "请用户在 Codex 对话上传截图；收到截图前不能进入 prompt、validate-only 或 render。若用户不上传截图，只能改成弱化/模糊屏幕内容。" : "",
         notes: state.notes.trim()
       };
     }

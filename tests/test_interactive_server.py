@@ -92,7 +92,8 @@ class InteractiveServerTests(unittest.TestCase):
         self.assertIn("fontEnabled", html)
         self.assertIn("ui_reference_note", html)
         self.assertIn("uiReferenceRequired", html)
-        self.assertIn("需要界面/功能截图参考", html)
+        self.assertIn("画面需要展示洋葱 APP 界面/功能截图", html)
+        self.assertIn("手机、学习机或其它电子屏幕", html)
         self.assertIn("保存后请回到 Codex 上传截图", html)
         self.assertIn("generation_mode", html)
         self.assertNotIn("__DATA_JSON__", html)
@@ -147,6 +148,7 @@ class InteractiveServerTests(unittest.TestCase):
             image_sets = json.loads((output_dir / "image-sets.json").read_text(encoding="utf-8"))
             self.assertEqual(config["sets"], 2)
             self.assertFalse(config["ui_reference_required"])
+            self.assertFalse(config["screen_ui_reference_required"])
             self.assertEqual(selection["schemes"], [])
             self.assertEqual(image_sets["sets"][0]["set_id"], "set1")
             self.assertEqual(live_sets_payload["sets"][0]["thumb"], ["set1_img1.png"])
@@ -158,16 +160,19 @@ class InteractiveServerTests(unittest.TestCase):
         result = self.server.normalize_config_result(
             {
                 "request_id": "req-test",
-                "ui_reference_required": True,
+                "screen_ui_reference_required": True,
                 "ui_reference_upload_status": "awaiting_codex_upload",
             },
             by_id,
         )
 
         self.assertTrue(result["ui_reference_required"])
+        self.assertTrue(result["screen_ui_reference_required"])
+        self.assertEqual(result["ui_reference_trigger"], "recognizable_onion_app_screen")
         self.assertEqual(result["ui_reference_upload_status"], "awaiting_codex_upload")
         self.assertEqual(result["ui_reference"], "codex_upload_required")
         self.assertIn("上传截图", result["ui_reference_next_action"])
+        self.assertIn("弱化/模糊屏幕", result["ui_reference_next_action"])
 
     def test_default_rules_include_latest_directness_and_disabled_slots(self):
         slots = self.server.load_platform_slots()
