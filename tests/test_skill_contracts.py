@@ -86,6 +86,30 @@ class SkillContractTests(unittest.TestCase):
         self.assertEqual(manifest["skills"], "./skills/")
         self.assertNotIn("<", json.dumps(manifest, ensure_ascii=False))
 
+    def test_router_skill_defines_top_level_dispatch_rules(self):
+        text = (PLUGIN_ROOT / "skills" / "onion-router" / "SKILL.md").read_text(encoding="utf-8")
+        evals = json.loads((PLUGIN_ROOT / "skills" / "onion-router" / "evals" / "evals.json").read_text(encoding="utf-8"))
+        readme = (PLUGIN_ROOT / "README.md").read_text(encoding="utf-8")
+
+        self.assertIn("只负责分流", text)
+        self.assertIn("不生成方向、不写文案、不生图、不写 Base", text)
+        self.assertIn("D-XXX", text)
+        self.assertIn("C-XXX", text)
+        self.assertIn("G-XXX", text)
+        self.assertIn("选择第 N 条", text)
+        self.assertIn("上传图先判断角色", text)
+        self.assertIn("旧广告图锚点", text)
+        self.assertIn("APP 截图、风格参考图或 IP 参考图", text)
+        self.assertIn("口头选择 set", text)
+        self.assertIn("onion-help", text)
+        self.assertIn("onion-router", readme)
+
+        cases = {item["name"]: item["expected_output"] for item in evals["evals"]}
+        self.assertIn("D-XXX 不能直接出图", cases["direction-id-image-request-routes-to-copy"])
+        self.assertIn("仍走 onion-image", cases["uploaded-reference-image-does-not-route-to-iterate"])
+        self.assertIn("onion-image-iterate", cases["uploaded-old-ad-routes-to-iterate"])
+        self.assertIn("不能口头选择 set", cases["oral-image-selection-routes-to-selection-page-result"])
+
     def test_direction_selection_and_stage_contracts_are_explicit(self):
         text = (PLUGIN_ROOT / "skills" / "onion-direction" / "SKILL.md").read_text(encoding="utf-8")
         evals = json.loads((PLUGIN_ROOT / "skills" / "onion-direction" / "evals" / "evals.json").read_text(encoding="utf-8"))

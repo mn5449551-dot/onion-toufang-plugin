@@ -4,15 +4,18 @@
 
 ---
 
-## 🧩 包含 5 个 Skill
+## 🧩 包含 6 个 Skill
 
 | Skill | 类型 | 干啥 | 触发举例 |
 |---|---|---|---|
+| `onion-router` | **总入口** | 先判断请求应该进入哪个 onion skill；只负责分流，不生成方向、不写文案、不生图、不写 Base | `我选第二条 / D-007 直接出图 / 上传这张图改文案 / 配置好了吗` |
 | `onion-help` | **导航** | 环境自检（lark-cli/.env/Python/Pillow/老张 API/Base/Pending）+ Base 结构检查 + Base 状态摘要（4 表 status 计数 + feedbacks 待审）+ 轻量推荐下一步 | `环境检查 / 初始化 Base / 看下进度 / 配置好了吗` |
 | `onion-direction` | 核心 ① | 出/扩/改方向卡（投放素材的上游，也可基于 D-XXX 继续） | `拍题精学的开学季方向，3 条 / D-007 再扩 5 条` |
 | `onion-copy` | 核心 ② | 出/扩/改文案（基于方向、方向 ID、文案 ID 或临时样本）| `用 D-007 出信息流文案 3 套 / C-012 标题再扩 5 套` |
 | `onion-image` | 核心 ③ | 出图（基于 C-XXX 或临时文案调老张 API 批量生图 + 选图）| `用 C-104 出应用商店三图，2 套` |
 | `onion-image-iterate` | 核心 ④ | 扩/换/微调图（基于 G-XXX 或用户上传图迭代）| `G-005 量好，扩同类 3 套` |
+
+`onion-router` 是总分诊台，用来处理含糊入口和上下文续跑：`D-XXX` 不能直接跳到图，必须先形成可用文案；`C-XXX` 才能进入新图；`G-XXX` 或旧广告图进入迭代；用户口头说“选 set1”不能入库，必须用选择页标注结果。
 
 4 个核心 skill 可以形成数据流：方向 → 文案 → 图 → 扩/换图；但不是强制线性流程。用户可以从合适入口开始：`D-XXX` 进 `onion-direction` / `onion-copy`，`C-XXX` 进 `onion-image`，`G-XXX` 或用户上传旧图进 `onion-image-iterate`。方向 ID 不能直接跳到图，必须先形成可用文案。
 
@@ -43,7 +46,7 @@ lark-cli auth login
 # 方式 B：从本地路径（开发期或离线）
 /plugin marketplace add /path/to/onion-toufang-plugin
 
-# 3. 安装 5 个 skill
+# 3. 安装 6 个 skill
 /plugin install onion-toufang@onion-toufang
 
 # 4. 配置 .env（保留默认 Base 配置，只填 LAOZHANG_API_KEY）
@@ -69,6 +72,9 @@ pip install Pillow
 在 Claude Code / Codex CLI 里直接跟 AI 说话：
 
 ```
+你: 我选第二条，接下来帮我出图
+AI: [先触发 onion-router 判断“第二条”指方向、文案还是图；必要时追问，再转入对应 skill]
+
 你: 拍题精学的开学季方向，3 条
 AI: [触发 onion-direction skill，反问/出方向卡/迭代/写飞书 Base]
 
@@ -107,7 +113,10 @@ onion-toufang-plugin/
 │   └── marketplace.json                    ← 让 Claude Code / Codex 识别这是 plugin
 ├── README.md                               ← 本文件
 ├── .env.template                           ← 配置模板（API key + 默认 Base token/TID）
-├── skills/                                 ← 5 个独立 skill
+├── skills/                                 ← 6 个独立 skill
+│   ├── onion-router/                       ← 总入口：只做分流，不做业务执行
+│   │   ├── SKILL.md
+│   │   └── evals/
 │   ├── onion-direction/
 │   │   ├── SKILL.md
 │   │   └── references/
@@ -123,7 +132,7 @@ onion-toufang-plugin/
 │   └── onion-image-iterate/
 │       ├── SKILL.md
 │       └── references/
-└── shared/                                 ← 4 skill 共用业务知识
+└── shared/                                 ← 核心 skill 共用业务知识
     ├── base_schema.md                      ← 飞书 Base schema + 默认 token/TID
     ├── feedback_observation.md             ← 反馈观察 + subagent 任务模板
     ├── knowledge/卖点库.md                  ← 洋葱 APP 卖点矩阵

@@ -3,7 +3,7 @@
   "owner": {
     "name": "洋葱学园投放团队"
   },
-  "description": "洋葱学园 APP 投放素材生成工作流：方向 → 文案 → 图 → 扩/换图，4 个核心 skill + 1 个导航 skill 协同跑通从'内容想点子'到'图片成品入库'的全流程",
+  "description": "洋葱学园 APP 投放素材生成工作流：入口分流 → 方向 → 文案 → 图 → 扩/换图，4 个核心 skill + 1 个总入口 + 1 个导航 skill 协同跑通从'内容想点子'到'图片成品入库'的全流程",
   "version": "1.1.0",
   "metadata": {
     "pluginRoot": "./"
@@ -12,7 +12,7 @@
     {
       "name": "onion-toufang",
       "source": "./",
-      "description": "投放素材生成 plugin（5 个 skill：onion-help 导航 + onion-direction / onion-copy / onion-image / onion-image-iterate 4 个核心）",
+      "description": "投放素材生成 plugin（6 个 skill：onion-router 总入口 + onion-help 导航 + onion-direction / onion-copy / onion-image / onion-image-iterate 4 个核心）",
       "version": "1.1.0",
       "author": {
         "name": "洋葱学园投放团队"
@@ -20,6 +20,7 @@
       "license": "Internal",
       "keywords": ["飞书", "投放", "广告素材", "拍题精学", "GPT-Image", "Lark Base"],
       "skills": [
+        "skills/onion-router",
         "skills/onion-help",
         "skills/onion-direction",
         "skills/onion-copy",
