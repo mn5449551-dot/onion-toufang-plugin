@@ -14,7 +14,7 @@
 | `onion-image` | 核心 ③ | 出图（基于 C-XXX 或临时文案调老张 API 批量生图 + 选图）| `用 C-104 出应用商店三图，2 套` |
 | `onion-image-iterate` | 核心 ④ | 扩/换/微调图（基于 G-XXX 或用户上传图迭代）| `G-005 量好，扩同类 3 套` |
 
-4 个核心 skill 可以形成数据流：方向 → 文案 → 图 → 扩/换图；但不是强制线性流程。用户可以从任意入口开始，`D-XXX / C-XXX / G-XXX` 会通过共享脚本回查 Base，拿到真实 record_id 和字段后继续。
+4 个核心 skill 可以形成数据流：方向 → 文案 → 图 → 扩/换图；但不是强制线性流程。用户可以从合适入口开始：`D-XXX` 进 `onion-direction` / `onion-copy`，`C-XXX` 进 `onion-image`，`G-XXX` 或用户上传旧图进 `onion-image-iterate`。方向 ID 不能直接跳到图，必须先形成可用文案。
 
 **推荐首次使用流程**：先调 `onion-help` 做一键环境自检 + 看 Base 状态，确认就绪再调核心 skill。
 

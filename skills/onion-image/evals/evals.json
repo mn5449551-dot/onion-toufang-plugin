@@ -31,16 +31,16 @@
     },
     {
       "id": 4,
-      "name": "existing-image-batch-expansion-uses-delta-batches",
+      "name": "existing-image-batch-expansion-routes-to-iterate",
       "prompt": "基于这张已跑量图再扩 20 套，同文案不变，只换场景和版式",
-      "expected_output": "AI 应识别为已有图批量扩展。先确认或读取基准图，再按 5-10 套一批生成受控 delta prompt；保持品牌、主视觉调性和成功构图特征，只解锁用户指定的场景和版式。不要把 20 套写成无关新概念。渲染时不同套可并发，但每套内部仍遵守 base/branch 链式规则。",
+      "expected_output": "AI 应识别为已有图批量扩展，不在 onion-image 里继续。应转 onion-image-iterate，让该 skill 确认基准图、扩同类力度和场景/版式改动轴；不应启动 /image-config，也不应直接进入 render.py。",
       "files": []
     },
     {
       "id": 5,
       "name": "direction-id-direct-image-does-not-skip-copy-layer",
       "prompt": "D-021 直接出应用商店三图 2 套，Logo=洋葱学园，IP=豆包",
-      "expected_output": "AI 应先回查 D-021 方向；如果没有对应已确认文案，不应直接把方向字段当图片文字生图。应先补齐/确认三图文案，或转 onion-copy 生成可用文案，再进入 prompt validate 和付费生图。",
+      "expected_output": "AI 应识别方向 ID 不是生图锚点，不应启动 /image-config，不应直接把方向字段当图片文字生图，也不应进入 render.py。应转 onion-copy 基于 D-021 先生成或确认应用商店三图文案；只有拿到 C-ID 或明确文案后，新的生图请求才进入 onion-image。",
       "files": []
     },
     {
@@ -52,9 +52,9 @@
     },
     {
       "id": 7,
-      "name": "uploaded-image-copy-and-ip-change-does-not-require-upstream",
+      "name": "uploaded-image-copy-and-ip-change-routes-to-iterate",
       "prompt": "用我上传的这张旧图，文案换成“拍完题马上看步骤”，角色换成上官，再来 3 套信息流单图",
-      "expected_output": "AI 应把用户上传图作为视觉锚点，不要求 G-ID、C-ID 或方向 ID。只确认缺失的比例/版位等阻塞视觉配置；prompt 以旧图为参考做受控改造，换文案和上官 IP。用户确认入库时可以写 image_groups，但没有可信上游时不传 direction_id、copy_id 或 parent_group_id。",
+      "expected_output": "AI 应识别为用户上传旧图的改造/扩图任务，不在 onion-image 里继续。应转 onion-image-iterate，由该 skill 以旧图为基准确认力度和改动轴（换文案、换上官 IP、3 套信息流单图）；不要求 G-ID、C-ID 或方向 ID，也不应先启动 onion-image 的探索生图配置页。",
       "files": []
     },
     {
