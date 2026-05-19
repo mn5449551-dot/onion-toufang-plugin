@@ -171,6 +171,28 @@ def write_completion_marker(path: Optional[Path], payload: Dict[str, Any]) -> No
     temp.replace(path)
 
 
+def read_completion_marker(path: Optional[Path]) -> Dict[str, Any]:
+    if not path:
+        return {}
+    path = path.expanduser().resolve()
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def resumable_record_id(marker: Dict[str, Any]) -> Optional[str]:
+    if marker.get("ok"):
+        return None
+    if marker.get("stage") not in {"record_created", "attachment_upload_failed"}:
+        return None
+    record_id = marker.get("record_id")
+    return str(record_id) if record_id else None
+
+
 def build_record_fields(
     direction_id: Optional[str],
     copy_id: Optional[str],
@@ -257,6 +279,8 @@ def main(argv: List[str] | None = None) -> int:
         compression_plan = build_compression_plan(images, default_target_kb, not args.no_compress)
         attachments = build_attachments_from_images(images, compression_plan)
         package_zip = str(Path(args.package_zip).expanduser().resolve()) if args.package_zip else None
+        marker_path = Path(args.write_result) if args.write_result else infer_write_result_path(images)
+        existing_marker = read_completion_marker(marker_path)
         base_payload = {
             "base_token": base_ops.base_token(args.base_token),
             "table_id": args.table_id,
@@ -282,16 +306,39 @@ def main(argv: List[str] | None = None) -> int:
             )
             return 0
 
+        if existing_marker.get("ok") and existing_marker.get("record_id"):
+            existing_marker.setdefault("skipped", True)
+            existing_marker.setdefault("reason", "write_result_already_complete")
+            print(json.dumps(existing_marker, ensure_ascii=False))
+            return 0
+
         apply_compression_plan(compression_plan)
-        code, response = base_ops.execute_with_retry_or_pending("record_batch_create", base_payload)
-        if code != 0:
-            print(json.dumps(response, ensure_ascii=False))
-            return code
-        record_ids = response.get("record_ids") or []
-        if not record_ids:
-            print(json.dumps({"ok": False, "error": "record create succeeded but returned no record id"}, ensure_ascii=False), file=sys.stderr)
-            return 6
-        record_id = record_ids[0]
+        record_id = resumable_record_id(existing_marker)
+        resumed = bool(record_id)
+        if not record_id:
+            code, response = base_ops.execute_with_retry_or_pending("record_batch_create", base_payload)
+            if code != 0:
+                print(json.dumps(response, ensure_ascii=False))
+                return code
+            record_ids = response.get("record_ids") or []
+            if not record_ids:
+                print(json.dumps({"ok": False, "error": "record create succeeded but returned no record id"}, ensure_ascii=False), file=sys.stderr)
+                return 6
+            record_id = record_ids[0]
+            write_completion_marker(
+                marker_path,
+                {
+                    "ok": False,
+                    "stage": "record_created",
+                    "record_id": record_id,
+                    "direction_id": args.direction_id,
+                    "copy_id": args.copy_id,
+                    "parent_group_id": parent_group_id,
+                    "package_zip": package_zip,
+                    "attachments": [],
+                    "resume_command": "rerun write_image_group.py with the same --write-result to resume attachment upload",
+                },
+            )
 
         attachment_results = []
         for attachment in attachments:
@@ -305,20 +352,24 @@ def main(argv: List[str] | None = None) -> int:
             attach_code, attach_response = base_ops.execute_with_retry_or_pending("attachment_upload", payload)
             attachment_results.append({"field_id": attachment["field_id"], "result": attach_response, "exit_code": attach_code})
             if attach_code != 0:
-                print(
-                    json.dumps(
-                        {
-                            "ok": False,
-                            "record_id": record_id,
-                            "attachments": attachment_results,
-                        },
-                        ensure_ascii=False,
-                    )
-                )
+                failure = {
+                    "ok": False,
+                    "stage": "attachment_upload_failed",
+                    "record_id": record_id,
+                    "direction_id": args.direction_id,
+                    "copy_id": args.copy_id,
+                    "parent_group_id": parent_group_id,
+                    "package_zip": package_zip,
+                    "attachments": attachment_results,
+                    "resume_command": "rerun write_image_group.py with the same --write-result to resume attachment upload",
+                }
+                write_completion_marker(marker_path, failure)
+                print(json.dumps(failure, ensure_ascii=False))
                 return attach_code
         cleanup_result = run_best_effort_cleanup()
         output = {
             "ok": True,
+            "stage": "complete",
             "record_id": record_id,
             "direction_id": args.direction_id,
             "copy_id": args.copy_id,
@@ -326,8 +377,8 @@ def main(argv: List[str] | None = None) -> int:
             "package_zip": package_zip,
             "attachments": attachment_results,
             "cleanup": cleanup_result,
+            "resumed": resumed,
         }
-        marker_path = Path(args.write_result) if args.write_result else infer_write_result_path(images)
         write_completion_marker(marker_path, output)
         if marker_path:
             output["write_result_path"] = str(marker_path.expanduser().resolve())

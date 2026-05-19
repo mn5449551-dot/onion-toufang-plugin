@@ -154,10 +154,12 @@ def build_status(request_id: str, output_dir: Path) -> dict[str, Any]:
     sets_path = output_dir / "image-sets.json"
     selection_path = output_dir / "image-selection-result.json"
     feedback_result_path = output_dir / "image-feedback-result.json"
+    write_result_path = output_dir / "image-write-result.json"
 
     config = load_json(config_path)
     image_sets = load_json(sets_path)
     selection = load_json(selection_path)
+    write_result = load_json(write_result_path)
     accepted = accepted_schemes(selection)
     feedback_errors = selection_feedback_errors(selection) if selection else []
     feedback_records = feedback_records_from_selection(selection) if selection else []
@@ -168,6 +170,7 @@ def build_status(request_id: str, output_dir: Path) -> dict[str, Any]:
         "image_sets": str(sets_path) if sets_path.is_file() else None,
         "selection_result": str(selection_path) if selection_path.is_file() else None,
         "feedback_result": str(feedback_result_path) if feedback_result_path.is_file() else None,
+        "write_result": str(write_result_path) if write_result_path.is_file() else None,
         "accepted_package": None,
     }
 
@@ -283,14 +286,32 @@ def build_status(request_id: str, output_dir: Path) -> dict[str, Any]:
             "next_action": "先运行 scripts/package_accepted_images.py 打包 accepted_schemes，再写 Base。",
         }
 
-    write_result = output_dir / "image-write-result.json"
-    if write_result.is_file():
+    if write_result_path.is_file() and write_result and write_result.get("ok"):
         return {
             **base,
             "stage": "complete",
             "can_prompt": True,
             "can_package": True,
             "next_action": "本轮已有 image-write-result.json；如需继续生成，创建新 request_id 或追加新批次后重新检查。",
+        }
+
+    if write_result_path.is_file() and write_result and write_result.get("record_id"):
+        return {
+            **base,
+            "stage": "needs_attachment_resume",
+            "can_prompt": True,
+            "can_package": True,
+            "record_id": write_result.get("record_id"),
+            "next_action": "image_groups 记录已创建但附件上传未完成；resume by rerunning shared/scripts/write_image_group.py with the same --write-result，脚本会复用已有 record_id，不要重新创建图组记录。",
+        }
+
+    if write_result_path.is_file():
+        return {
+            **base,
+            "stage": "invalid_write_result",
+            "can_prompt": True,
+            "can_package": True,
+            "next_action": "image-write-result.json 存在但缺少 ok=true 或 record_id。先人工检查该文件和飞书记录，避免重复创建图组。",
         }
 
     return {

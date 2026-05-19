@@ -171,6 +171,36 @@ class ImageWorkflowTests(unittest.TestCase):
         self.assertFalse(payload["can_write_base"])
         self.assertIn("image-write-result.json", payload["next_action"])
 
+    def test_partial_write_result_requires_attachment_resume_not_duplicate_create(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "image-config-result.json").write_text(json.dumps(VALID_CONFIG), encoding="utf-8")
+            (root / "image-sets.json").write_text(
+                json.dumps({"request_id": "req-test", "sets": [{"set_id": "set1"}]}),
+                encoding="utf-8",
+            )
+            (root / "image-selection-result.json").write_text(
+                json.dumps({"request_id": "req-test", "accepted_schemes": [{"set_id": "set1"}]}),
+                encoding="utf-8",
+            )
+            (root / "req-test-accepted-images.zip").write_bytes(b"zip")
+            (root / "image-write-result.json").write_text(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "stage": "attachment_upload_failed",
+                        "record_id": "recImg",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            payload = run_workflow(root)
+
+        self.assertEqual(payload["stage"], "needs_attachment_resume")
+        self.assertFalse(payload["can_write_base"])
+        self.assertIn("resume", payload["next_action"].lower())
+
     def test_ready_to_render_requires_non_placeholder_api_key(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

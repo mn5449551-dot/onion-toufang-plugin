@@ -180,6 +180,25 @@ class InteractiveServerTests(unittest.TestCase):
             self.assertEqual(live_sets_payload["sets"][0]["thumb"], ["set1_img1.png"])
             self.assertEqual(logo_status, 200)
 
+    def test_static_file_paths_cannot_escape_output_dir(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp) / "output"
+            output_dir.mkdir()
+            httpd = self.server.OnionInteractionServer(
+                ("127.0.0.1", 0),
+                output_dir=output_dir,
+                request_id="req-test",
+                context={},
+                platform_rules=None,
+            )
+            handler = object.__new__(self.server.OnionInteractionHandler)
+            handler.server = httpd
+
+            translated = Path(handler.translate_path("/../secret.txt")).resolve()
+
+            self.assertEqual(translated, (output_dir / "__forbidden__").resolve())
+            httpd.server_close()
+
     def test_config_result_requires_explicit_placement_selection(self):
         slots = self.server.load_platform_slots()
         by_id = {slot["id"]: slot for slot in slots}

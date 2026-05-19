@@ -261,7 +261,7 @@ class BaseScriptTests(unittest.TestCase):
             self.assertEqual(item["retry_count"], 0)
             self.assertEqual(item["max_retries"], 3)
             self.assertTrue(item["retryable"])
-            self.assertFalse(item["ambiguous"])
+            self.assertTrue(item["ambiguous"])
             self.assertEqual(item["payload"]["table_id"], "tblLWPSHrZT95oy7")
             self.assertEqual(
                 item["payload"]["lark_payload"],
@@ -544,6 +544,84 @@ else:
             marker_payload = json.loads(marker.read_text(encoding="utf-8"))
             self.assertEqual(marker_payload["record_id"], "recImg")
             self.assertEqual(marker_payload["copy_id"], "recCopy")
+
+    def test_write_image_group_resumes_attachment_upload_without_duplicate_create(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            image = root / "set1_img1.png"
+            image.write_bytes(b"fake")
+            marker = root / "image-write-result.json"
+            fake_lark = root / "fake-lark-cli"
+            fake_lark.write_text(
+                textwrap.dedent(
+                    """\
+                    #!/usr/bin/env python3
+                    import json
+                    import pathlib
+                    import sys
+
+                    root = pathlib.Path(__file__).parent
+                    create_count = root / "create-count.txt"
+                    upload_count = root / "upload-count.txt"
+
+                    if "+record-batch-create" in sys.argv:
+                        count = int(create_count.read_text() or "0") if create_count.exists() else 0
+                        create_count.write_text(str(count + 1))
+                        print(json.dumps({"data": {"record_ids": ["recImg"]}}))
+                        sys.exit(0)
+
+                    if "+record-upload-attachment" in sys.argv:
+                        count = int(upload_count.read_text() or "0") if upload_count.exists() else 0
+                        upload_count.write_text(str(count + 1))
+                        if not (root / "allow-upload-success").exists():
+                            print("temporary attachment failure", file=sys.stderr)
+                            sys.exit(1)
+                        print(json.dumps({"ok": True}))
+                        sys.exit(0)
+
+                    print(json.dumps({"ok": True}))
+                    """
+                ),
+                encoding="utf-8",
+            )
+            fake_lark.chmod(fake_lark.stat().st_mode | stat.S_IXUSR)
+            env = self.make_env(root, fake_lark=fake_lark)
+            args = [
+                "write_image_group.py",
+                "--copy-id",
+                "recCopy",
+                "--images",
+                json.dumps([{"index": 1, "path": str(image)}]),
+                "--metadata",
+                '{"图片形式":"单图","状态":"待用"}',
+                "--no-compress",
+                "--write-result",
+                str(marker),
+            ]
+
+            first = self.run_script(*args, env=env)
+            self.assertEqual(first.returncode, 5)
+            first_marker = json.loads(marker.read_text(encoding="utf-8"))
+            self.assertEqual(first_marker["record_id"], "recImg")
+            self.assertEqual(first_marker["stage"], "attachment_upload_failed")
+            pending_items = [
+                json.loads(line)
+                for line in self.pending_path(root).read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+            self.assertEqual(pending_items[-1]["op_type"], "attachment_upload")
+            self.assertTrue(pending_items[-1]["ambiguous"])
+
+            (root / "allow-upload-success").write_text("1", encoding="utf-8")
+            second = self.run_script(*args, env=env)
+            payload = self.read_json_stdout(second)
+
+            self.assertTrue(payload["ok"])
+            self.assertEqual(payload["record_id"], "recImg")
+            self.assertEqual((root / "create-count.txt").read_text(), "1")
+            self.assertEqual((root / "upload-count.txt").read_text(), "4")
+            final_marker = json.loads(marker.read_text(encoding="utf-8"))
+            self.assertTrue(final_marker["ok"])
 
 
 if __name__ == "__main__":

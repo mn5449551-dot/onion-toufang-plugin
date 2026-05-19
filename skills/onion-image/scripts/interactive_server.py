@@ -748,6 +748,7 @@ class OnionInteractionHandler(SimpleHTTPRequestHandler):
     def translate_path(self, path: str) -> str:
         parsed = urlparse(path)
         clean = posixpath.normpath(parsed.path.lstrip("/"))
+        output_root = self.server.output_dir.resolve()  # type: ignore[attr-defined]
         if clean in {"", "."}:
             clean = "image-config"
         if clean == "image-config":
@@ -759,7 +760,10 @@ class OnionInteractionHandler(SimpleHTTPRequestHandler):
             if target == skill_root or skill_root in target.parents:
                 return str(target)
             return str(self.server.output_dir / "__forbidden__")  # type: ignore[attr-defined]
-        return str((self.server.output_dir / clean).resolve())  # type: ignore[attr-defined]
+        target = (self.server.output_dir / clean).resolve()  # type: ignore[attr-defined]
+        if target == output_root or output_root in target.parents:
+            return str(target)
+        return str(output_root / "__forbidden__")
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)

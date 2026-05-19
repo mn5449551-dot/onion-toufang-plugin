@@ -129,6 +129,8 @@ def make_pending_item(
 ) -> Dict[str, Any]:
     retryable, default_ambiguous = classify_retry(error_text)
     ambiguous = ambiguous or default_ambiguous
+    if op_type in {"record_batch_create", "attachment_upload"} and retryable:
+        ambiguous = True
     stamp = now_iso()
     idempotency_key = make_hash(op_type, payload)
     op_id_seed = f"{stamp}-{idempotency_key}"
