@@ -30,39 +30,72 @@
 ### 团队成员（你拿到这个 plugin 后）
 
 **前提**：
-- 装好 Claude Code 或 Codex CLI（[官网](https://claude.com/claude-code)）
-- 装好飞书 lark-cli（参 Anthropic 内置 `lark-base` skill）
+- 装好 Codex Desktop 或 Claude Code
+- 装好飞书 lark-cli，并用自己的飞书账号登录
 - 你的飞书账号在生产 Base 的"可编辑"协作者列表里
 
-**安装步骤（一次性）**：
+注意：**下载源码不等于安装插件**。把 GitHub 仓库 clone 到本地后，Codex Desktop 不会自动扫描这个目录；必须把它注册到 Codex 的本地 marketplace，并重启 Codex Desktop 或打开新会话后才会出现在插件/skill 列表里。
+
+### Codex Desktop 一键安装（推荐）
+
+macOS / Linux：
 
 ```bash
-# 1. 确保已 lark-cli 登录（用你自己飞书账号）
-lark-cli auth login
-
-# 2. 添加本 plugin 的 marketplace
-# 方式 A：从 GitHub（推荐）
-# 先 gh auth login
-/plugin marketplace add <your-github-org>/onion-toufang-plugin
-
-# 方式 B：从本地路径（开发期或离线）
-/plugin marketplace add /path/to/onion-toufang-plugin
-
-# 3. 安装 6 个 skill
-/plugin install onion-toufang@onion-toufang
-
-# 4. 一键初始化本机配置（Mac / Windows 会自动适配用户目录和临时目录）
-python3 skills/onion-help/scripts/setup_wizard.py ensure
-# 然后编辑用户目录下 .onion-ad/.env，填入 LAOZHANG_API_KEY
-
-# 5. 出图上传前会压缩图片，使用 onion-image / onion-image-iterate 的成员需要 Pillow
-pip install Pillow
+git clone <your-github-url>/onion-toufang-plugin.git
+cd onion-toufang-plugin
+python3 scripts/install_codex_plugin.py
 ```
+
+Windows PowerShell：
+
+```powershell
+git clone <your-github-url>/onion-toufang-plugin.git
+cd onion-toufang-plugin
+py -3 scripts/install_codex_plugin.py
+```
+
+脚本会：
+- 创建 `~/.codex/plugins/local-marketplaces/onion-toufang`
+- 把当前插件注册为 `onion-toufang@onion-toufang`
+- 幂等更新 `~/.codex/config.toml`
+- 运行 `onion-help` 的首次环境初始化，生成用户目录下的 `.onion-ad/.env`
+
+安装完成后必须完成飞书登录，并安装出图压缩依赖。
+
+macOS / Linux：
+
+```bash
+lark-cli auth login
+python3 -m pip install Pillow
+```
+
+Windows PowerShell：
+
+```powershell
+lark-cli auth login
+py -3 -m pip install Pillow
+```
+
+然后编辑用户目录下的 `.onion-ad/.env`，填入 `LAOZHANG_API_KEY` 等本机密钥。Windows 路径通常是 `%USERPROFILE%\.onion-ad\.env`。**重启 Codex Desktop** 或打开新会话后，再说“帮我检查洋葱投放插件环境”。
+
+### Claude Code / 手动安装
+
+如果使用 Claude Code 的插件市场命令，可以继续走 marketplace/install；但团队分发时优先用上面的一键脚本，避免只下载仓库却没有安装到 Codex Desktop。
 
 **之后任何时间想升级到新版**：
 
+macOS / Linux：
+
 ```bash
-/plugin marketplace update onion-toufang
+git pull
+python3 scripts/install_codex_plugin.py
+```
+
+Windows PowerShell：
+
+```powershell
+git pull
+py -3 scripts/install_codex_plugin.py
 ```
 
 ---
