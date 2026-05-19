@@ -8,10 +8,12 @@ SETS_DATA schema:
     "imageForm": "single | double | triple",
     "decision": "accepted | rejected | pending",
     "images": [{"index": 1, "path": "/tmp/.../set1_img1.png", "role": "base | branch"}],
-    "reason": "固定规则 | 主观感受 | 跳过 | null",
-    "ruleFeedback": "string | null",
-    "note": "string | null",
-    "problemPositions": [1]
+    "annotation": {
+      "fixed_rule_feedback": "string",
+      "subjective_feedback": "string",
+      "skip_feedback": false,
+      "problem_positions": [1]
+    }
   }]
 }
 -->
@@ -307,7 +309,7 @@ SETS_DATA schema:
     <aside class="panel right-aside" id="annotation-panel">
       <h3>图片方案标注</h3>
       <p style="font-size: 12px; color: var(--muted); margin: 6px 0 14px;">
-        采纳整套，或不采纳并选择反馈类型。可勾选问题位置标注哪张有问题。
+        采纳整套，或不采纳并填写反馈。固定规则反馈和主观感受反馈可以同时填写；跳过反馈会直接进入下一套。
       </p>
 
       <div class="actions" style="display: grid; gap: 8px;">
@@ -317,30 +319,25 @@ SETS_DATA schema:
 
       <div id="reject-panel" style="display: none;">
         <div class="field">
-          <label>反馈类型（不采纳时必选）</label>
-          <div>
-            <span class="pill" data-reason="固定规则">固定规则</span>
-            <span class="pill" data-reason="主观感受">主观感受</span>
-            <span class="pill" data-reason="跳过">跳过反馈</span>
-          </div>
           <p style="font-size: 11px; color: var(--muted); margin-top: 6px;">
-            <strong>固定规则</strong>：能写进 SKILL.md 的硬约束（如手机不能有刘海屏）<br>
-            <strong>主观感受</strong>：审美、风格、吸引力等主观判断<br>
-            <strong>跳过反馈</strong>：不采纳但暂时不沉淀原因
+            <strong>固定规则反馈</strong>：能写进 SKILL.md 的硬约束（如手机不能有刘海屏）<br>
+            <strong>主观感受反馈</strong>：审美、风格、吸引力等主观判断<br>
+            <strong>跳过反馈</strong>：不采纳但暂时不沉淀原因，点击后直接进入下一套
           </p>
         </div>
 
-        <div class="field" id="field-rule" style="display: none;">
-          <label>固定规则问题</label>
-          <textarea id="ruleFeedback" placeholder="例：手机有刘海屏违反应用商店审核 / Logo 必须清晰"></textarea>
+        <div class="field" id="field-rule">
+          <label>固定规则反馈</label>
+          <textarea id="fixedRuleFeedback" placeholder="例：手机有刘海屏违反应用商店审核 / Logo 必须清晰"></textarea>
         </div>
 
-        <div class="field" id="field-note" style="display: none;">
-          <label>主观感受</label>
-          <textarea id="note" placeholder="例：画面不够吸引人 / 风格不贴近产品"></textarea>
+        <div class="field" id="field-note">
+          <label>主观感受反馈</label>
+          <textarea id="subjectiveFeedback" placeholder="例：画面不够吸引人 / 风格不贴近产品"></textarea>
         </div>
 
         <button class="btn btn-danger btn-block" id="btn-confirm-reject" style="margin-top: 12px;">确认不采纳并下一套</button>
+        <button class="btn btn-block" id="btn-skip-feedback" style="margin-top: 8px;">跳过反馈并下一套</button>
       </div>
 
       <div class="hotkey-help">
@@ -358,7 +355,7 @@ SETS_DATA schema:
     <span class="status" id="submit-status">把所有套都标注完后点提交</span>
     <div class="actions">
       <button class="btn" onclick="resetAll()">全部清空</button>
-      <button class="btn btn-primary" onclick="submitAll()">提交标注结果</button>
+      <button id="submitAllButton" class="btn btn-primary" onclick="submitAll()">提交标注结果</button>
     </div>
   </div>
 
@@ -378,14 +375,15 @@ SETS_DATA schema:
     let SETS = {{SETS_DATA}};
     const stateById = new Map();
     let curIndex = 0;
+    let submitInFlight = false;
 
     function emptyState(setId) {
       return {
         id: setId,
         decision: null,        // 'accepted' | 'rejected' | null
-        reason: null,          // 固定规则 / 主观感受 / 跳过
-        ruleFeedback: '',
-        note: '',
+        fixedRuleFeedback: '',
+        subjectiveFeedback: '',
+        skipFeedback: false,
         problemPositions: [],  // [1, 2, 3] 之子集
       };
     }
@@ -483,18 +481,9 @@ SETS_DATA schema:
     function renderRightPanel() {
       const st = stateForIndex(curIndex);
       const rejectPanel = document.getElementById('reject-panel');
-      // 同步 pill 选中状态
-      document.querySelectorAll('.pill').forEach(p => {
-        p.classList.toggle('active', p.dataset.reason === st.reason);
-      });
       // 同步 textarea
-      document.getElementById('ruleFeedback').value = st.ruleFeedback;
-      document.getElementById('note').value = st.note;
-      // 显示对应 field
-      document.getElementById('field-rule').style.display =
-        (st.reason === '固定规则') ? 'block' : 'none';
-      document.getElementById('field-note').style.display =
-        (st.reason === '主观感受') ? 'block' : 'none';
+      document.getElementById('fixedRuleFeedback').value = st.fixedRuleFeedback;
+      document.getElementById('subjectiveFeedback').value = st.subjectiveFeedback;
       // 当 decision === 'rejected' 显示 reject panel
       rejectPanel.style.display = (st.decision === 'rejected') ? 'block' : 'none';
     }
@@ -532,30 +521,25 @@ SETS_DATA schema:
     function accept() {
       const st = stateForIndex(curIndex);
       st.decision = 'accepted';
-      st.reason = null;
-      st.ruleFeedback = '';
-      st.note = '';
+      st.fixedRuleFeedback = '';
+      st.subjectiveFeedback = '';
+      st.skipFeedback = false;
       // 自动跳下一套
       const next = SETS.findIndex((_, i) => i > curIndex && stateForIndex(i).decision === null);
       if (next >= 0) selectIndex(next);
       else renderAll();
     }
     function openReject() {
-      stateForIndex(curIndex).decision = 'rejected';
+      const st = stateForIndex(curIndex);
+      st.decision = 'rejected';
+      st.skipFeedback = false;
       renderAll();
     }
     function confirmReject() {
       const st = stateForIndex(curIndex);
-      if (!st.reason) {
-        alert('请先选反馈类型');
-        return;
-      }
-      if (st.reason === '固定规则' && !st.ruleFeedback.trim()) {
-        alert('选择「固定规则」时，请填写具体规则问题');
-        return;
-      }
-      if (st.reason === '主观感受' && !st.note.trim()) {
-        alert('选择「主观感受」时，请填写具体主观反馈');
+      st.skipFeedback = false;
+      if (!st.fixedRuleFeedback.trim() && !st.subjectiveFeedback.trim()) {
+        alert('不采纳时请填写固定规则反馈或主观感受反馈；如果暂时不沉淀原因，请点击「跳过反馈并下一套」。');
         return;
       }
       // 跳下一套
@@ -563,23 +547,27 @@ SETS_DATA schema:
       if (next >= 0) selectIndex(next);
       else renderAll();
     }
-    function setReason(r) {
+
+    function skipFeedbackAndNext() {
       const st = stateForIndex(curIndex);
-      st.reason = (st.reason === r) ? null : r;
-      if (st.reason !== '固定规则') st.ruleFeedback = '';
-      if (st.reason !== '主观感受') st.note = '';
-      renderRightPanel();
+      st.decision = 'rejected';
+      st.fixedRuleFeedback = '';
+      st.subjectiveFeedback = '';
+      st.skipFeedback = true;
+      const next = SETS.findIndex((_, i) => i > curIndex && stateForIndex(i).decision === null);
+      if (next >= 0) selectIndex(next);
+      else renderAll();
     }
     function resetCur() {
       Object.assign(stateForIndex(curIndex), {
-        decision: null, reason: null, ruleFeedback: '', note: '', problemPositions: []
+        decision: null, fixedRuleFeedback: '', subjectiveFeedback: '', skipFeedback: false, problemPositions: []
       });
       renderAll();
     }
     function resetAll() {
       if (!confirm('清空所有标注？')) return;
       SETS.forEach((_, i) => Object.assign(stateForIndex(i), {
-        decision: null, reason: null, ruleFeedback: '', note: '', problemPositions: []
+        decision: null, fixedRuleFeedback: '', subjectiveFeedback: '', skipFeedback: false, problemPositions: []
       }));
       curIndex = 0;
       renderAll();
@@ -597,18 +585,8 @@ SETS_DATA schema:
       for (const item of annotated) {
         const st = item.state;
         if (st.decision !== 'rejected') continue;
-        if (!st.reason) {
-          alert(`套 ${item.scheme.set_id} 不采纳但未选择反馈类型。请选择固定规则、主观感受或跳过反馈。`);
-          selectIndex(SETS.findIndex(s => s.set_id === item.scheme.set_id));
-          return;
-        }
-        if (st.reason === '固定规则' && !st.ruleFeedback.trim()) {
-          alert(`套 ${item.scheme.set_id} 选择了固定规则，请填写具体规则问题。`);
-          selectIndex(SETS.findIndex(s => s.set_id === item.scheme.set_id));
-          return;
-        }
-        if (st.reason === '主观感受' && !st.note.trim()) {
-          alert(`套 ${item.scheme.set_id} 选择了主观感受，请填写具体反馈。`);
+        if (!st.skipFeedback && !st.fixedRuleFeedback.trim() && !st.subjectiveFeedback.trim()) {
+          alert(`套 ${item.scheme.set_id} 不采纳但没有反馈。请填写固定规则反馈 / 主观感受反馈，或点击跳过反馈。`);
           selectIndex(SETS.findIndex(s => s.set_id === item.scheme.set_id));
           return;
         }
@@ -633,17 +611,17 @@ SETS_DATA schema:
           ...item.scheme,
           annotation: {
             decision: item.state.decision,
-            problemPositions: item.state.problemPositions,
+            problem_positions: item.state.problemPositions,
           },
         })),
         rejected_schemes: rejected.map(item => ({
           ...item.scheme,
           annotation: {
             decision: item.state.decision,
-            reason: item.state.reason,
-            ruleFeedback: item.state.ruleFeedback,
-            note: item.state.note,
-            problemPositions: item.state.problemPositions,
+            fixed_rule_feedback: item.state.fixedRuleFeedback,
+            subjective_feedback: item.state.subjectiveFeedback,
+            skip_feedback: item.state.skipFeedback,
+            problem_positions: item.state.problemPositions,
           },
         })),
         pending_scheme_ids: pendingItems.map(item => item.scheme.set_id),
@@ -651,14 +629,19 @@ SETS_DATA schema:
           id: item.scheme.set_id,
           decision: item.state.decision || 'pending',
           ...(item.state.decision === 'rejected' ? {
-            reason: item.state.reason,
-            ruleFeedback: item.state.ruleFeedback,
-            note: item.state.note,
+            fixed_rule_feedback: item.state.fixedRuleFeedback,
+            subjective_feedback: item.state.subjectiveFeedback,
+            skip_feedback: item.state.skipFeedback,
           } : {}),
-          problemPositions: item.state.problemPositions,
+          problem_positions: item.state.problemPositions,
         })),
       };
       const json = JSON.stringify(result, null, 2);
+      if (submitInFlight) return;
+      submitInFlight = true;
+      const submitButton = document.getElementById('submitAllButton');
+      submitButton.disabled = true;
+      submitButton.textContent = '提交中...';
       try {
         const response = await fetch('/api/image-selection', {
           method: 'POST',
@@ -673,9 +656,15 @@ SETS_DATA schema:
         }
         document.getElementById('submit-status').textContent = `保存失败：${payload.error || 'unknown error'}。请确认本地服务仍在运行后重试。`;
         alert('保存失败，请确认本地服务仍在运行后重试。');
+        submitInFlight = false;
+        submitButton.disabled = false;
+        submitButton.textContent = '提交标注结果';
       } catch (err) {
         document.getElementById('submit-status').textContent = `保存失败：${err.message}。请确认本地服务仍在运行后重试。`;
         alert('保存失败，请确认本地服务仍在运行后重试。');
+        submitInFlight = false;
+        submitButton.disabled = false;
+        submitButton.textContent = '提交标注结果';
       }
     }
 
@@ -728,20 +717,19 @@ SETS_DATA schema:
       }
     });
 
-    // pill 点击
-    document.querySelectorAll('.pill').forEach(p => {
-      p.addEventListener('click', () => setReason(p.dataset.reason));
-    });
     // textarea 同步
-    document.getElementById('ruleFeedback').addEventListener('input', e => {
-      stateForIndex(curIndex).ruleFeedback = e.target.value;
+    document.getElementById('fixedRuleFeedback').addEventListener('input', e => {
+      stateForIndex(curIndex).fixedRuleFeedback = e.target.value;
+      stateForIndex(curIndex).skipFeedback = false;
     });
-    document.getElementById('note').addEventListener('input', e => {
-      stateForIndex(curIndex).note = e.target.value;
+    document.getElementById('subjectiveFeedback').addEventListener('input', e => {
+      stateForIndex(curIndex).subjectiveFeedback = e.target.value;
+      stateForIndex(curIndex).skipFeedback = false;
     });
     document.getElementById('btn-accept').addEventListener('click', accept);
     document.getElementById('btn-reject').addEventListener('click', openReject);
     document.getElementById('btn-confirm-reject').addEventListener('click', confirmReject);
+    document.getElementById('btn-skip-feedback').addEventListener('click', skipFeedbackAndNext);
 
     // 初始渲染
     renderAll();

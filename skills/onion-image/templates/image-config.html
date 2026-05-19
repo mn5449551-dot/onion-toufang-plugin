@@ -273,7 +273,7 @@
       </div>
       <div class="field">
         <label for="sets">套数</label>
-        <input id="sets" type="number" min="1" max="50" step="1">
+        <input id="sets" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
         <div class="hint">手动输入，最多 50 套；大批量会分批生成和刷新。</div>
       </div>
       <div class="field">
@@ -315,10 +315,11 @@
   </main>
   <div class="actions">
     <span id="status" class="status"></span>
-    <button class="primary" onclick="submitConfig()">保存配置</button>
+    <button id="submitConfigButton" class="primary" onclick="submitConfig()">保存配置</button>
   </div>
   <script>
     const DATA = __DATA_JSON__;
+    let submitInFlight = false;
     const state = {
       generationMode: DATA.generationMode || DATA.context?.generation_mode || "explore",
       category: DATA.desiredChannels?.[0] || DATA.categories?.[0] || DATA.slots[0]?.channel || "应用商店",
@@ -421,10 +422,27 @@
       document.getElementById("summary").innerHTML = items.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("");
     }
 
-    function clampSets(value) {
+    function normalizeSetsInput(value) {
+      return String(value || "").replace(/[^\d]/g, "");
+    }
+
+    function parseSets(value) {
+      const text = normalizeSetsInput(value);
+      if (!text) throw new Error("请输入套数，范围 1-50");
       const parsed = Number.parseInt(value, 10);
-      if (!Number.isFinite(parsed)) return 1;
-      return Math.min(50, Math.max(1, parsed));
+      if (!Number.isFinite(parsed) || String(parsed) !== text) throw new Error("套数必须是整数，范围 1-50");
+      if (parsed < 1 || parsed > 50) throw new Error("套数必须在 1-50 之间");
+      return parsed;
+    }
+
+    function handleSetsKeydown(event) {
+      if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+        event.preventDefault();
+      }
+    }
+
+    function handleSetsWheel(event) {
+      event.preventDefault();
     }
 
     function selectCategory(category) {
@@ -449,6 +467,7 @@
       syncState();
       const slots = selectedSlots();
       if (!slots.length) throw new Error("请先选择至少一个版位");
+      const setCount = parseSets(document.getElementById("sets").value);
       const slot = slots[0];
       const logo = selectedLogo();
       const ip = selectedIp();
@@ -497,7 +516,7 @@
         render_height: slot.render_height,
         render_size: slot.render_size,
         target_kb: slot.maxFileSizeKb || 200,
-        sets: Number(state.sets),
+        sets: setCount,
         logo: logo.value,
         logo_asset_id: logo.asset_id,
         logo_reference_path: logo.path,
@@ -523,7 +542,7 @@
     }
 
     function syncState() {
-      state.sets = clampSets(document.getElementById("sets").value);
+      state.sets = normalizeSetsInput(document.getElementById("sets").value);
       document.getElementById("sets").value = state.sets;
       state.fontEnabled = document.getElementById("fontEnabled").checked;
       state.uiReferenceRequired = document.getElementById("uiReferenceRequired").checked;
@@ -538,6 +557,11 @@
     }
 
     async function submitConfig() {
+      if (submitInFlight) return;
+      submitInFlight = true;
+      const button = document.getElementById("submitConfigButton");
+      button.disabled = true;
+      button.textContent = "保存中...";
       try {
         const response = await fetch("/api/image-config", {
           method: "POST",
@@ -548,8 +572,16 @@
         document.getElementById("status").textContent = payload.ok
           ? `配置已保存：${payload.path}。请回到 Codex 回复：好了。`
           : `保存失败：${payload.error}`;
+        if (!payload.ok) {
+          submitInFlight = false;
+          button.disabled = false;
+          button.textContent = "保存配置";
+        }
       } catch (error) {
         document.getElementById("status").textContent = `保存失败，请确认本地服务仍在运行后重试：${error.message}`;
+        submitInFlight = false;
+        button.disabled = false;
+        button.textContent = "保存配置";
       }
     }
 
@@ -562,6 +594,8 @@
         document.getElementById(id).oninput = syncState;
         document.getElementById(id).onchange = syncState;
       });
+      document.getElementById("sets").onkeydown = handleSetsKeydown;
+      document.getElementById("sets").onwheel = handleSetsWheel;
       document.querySelectorAll(".change-axis").forEach(input => {
         input.oninput = syncState;
         input.onchange = syncState;

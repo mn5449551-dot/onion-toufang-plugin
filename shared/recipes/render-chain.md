@@ -1,6 +1,10 @@
 # render.py Interface Contract
 
-`skills/onion-image/scripts/render.py` is the only image rendering entrypoint. It renders one PNG per call. Single/double/triple orchestration and batch scheduling happen in the skill logic, not inside `render.py`.
+`skills/onion-image/scripts/render.py` is the single-job renderer. It renders one PNG per call.
+
+`skills/onion-image/scripts/batch_render.py` is the batch orchestration entrypoint for paid multi-image work. It reads a manifest, runs `render.py` as subprocesses, respects single/double/triple dependencies, skips already-rendered outputs on resume, and writes `image-render-result.json`.
+
+Do not hand-roll concurrent shell loops in the agent. 并发单位是 render job，不是套数：单图 1 套约等于 1 个 job；双图 1 套至少 2 个 job，图2依赖图1；三图 1 套至少 3 个 job，图2/图3依赖图1。
 
 ## Inputs
 
@@ -24,6 +28,9 @@ Environment:
 
 - `LAOZHANG_API_KEY` is required only for paid rendering, not for `--validate-only`; before a paid render, check that it exists and is not a placeholder so the run does not fail after prompts are prepared.
 - `.env` is auto-loaded from `~/.onion-ad/.env`, cwd `.env`, and the skill directory.
+- LaoZhang `GPTImage2 Enterprise / gpt-image-2` is planned as `3000 RPM / API key` and `100 concurrent requests / API key`; this plugin uses local concurrency only, not a team-wide lock.
+- `ONION_IMAGE_CONCURRENCY` defaults to `6`.
+- `ONION_IMAGE_FALLBACK_CONCURRENCY` defaults to `3`.
 
 ## Output
 
@@ -120,6 +127,49 @@ Recommended execution shape:
 - render independent sets concurrently with a conservative cap;
 - for double/triple sets, render each set's base first, then render its branches after the base file exists;
 - keep partial successes and do not rerender existing PNGs on resume.
+
+Use `batch_render.py` after prompts and references have passed validation:
+
+```bash
+python3 skills/onion-image/scripts/batch_render.py \
+  --manifest <output-dir>/image-render-manifest.json \
+  --output <output-dir>/image-render-result.json
+```
+
+Manifest shape:
+
+```json
+{
+  "request_id": "img-20260519-xxx",
+  "jobs": [
+    {
+      "job_id": "set1-img1",
+      "set_id": "set1",
+      "slot": 1,
+      "image_form": "single",
+      "prompt": "完整生图提示词",
+      "size": "1568x672",
+      "quality": "low",
+      "output": "/tmp/onion-ad/<request_id>/renders/set1-img1.png",
+      "references": [],
+      "depends_on": []
+    }
+  ]
+}
+```
+
+Dependency rules:
+
+- Single: `depends_on=[]`.
+- Double: `setN-img2.depends_on=["setN-img1"]`.
+- Triple: `setN-img2` and `setN-img3` both depend on `setN-img1`; branches can run concurrently after base exists.
+
+Failure handling:
+
+- Default local concurrency is 6.
+- On `429 / rate limit / timeout / 5xx`, the current failed jobs retry once at fallback concurrency 3.
+- Failed sets stay in `failed_sets`; completed sets remain available for selection.
+- Existing non-empty output files are skipped on resume.
 
 ## Validation Before Paid Calls
 

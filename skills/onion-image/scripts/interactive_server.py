@@ -620,6 +620,18 @@ def update_image_sets(output_dir: Path, request_id: str, body: dict[str, Any]) -
     return result
 
 
+def parse_set_count(value: Any) -> int:
+    if value is None or str(value).strip() == "":
+        return 1
+    text = str(value).strip()
+    if not text.isdigit():
+        raise ValueError("sets must be an integer between 1 and 50")
+    count = int(text)
+    if count < 1 or count > 50:
+        raise ValueError("sets must be between 1 and 50")
+    return count
+
+
 def normalize_config_result(body: dict[str, Any], slot_map: dict[str, dict[str, Any]]) -> dict[str, Any]:
     placement_ids = body.get("placement_ids") or body.get("selectedSlotIds") or []
     if not placement_ids and body.get("slot_id"):
@@ -665,7 +677,7 @@ def normalize_config_result(body: dict[str, Any], slot_map: dict[str, dict[str, 
     result["render_height"] = first["render_height"]
     result["render_size"] = first["render_size"]
     result["target_kb"] = first["max_file_size_kb"] or 200
-    result["sets"] = max(1, min(50, int(body.get("sets") or 1)))
+    result["sets"] = parse_set_count(body.get("sets"))
     result["ip_random"] = bool(body.get("ip_random") or body.get("ip") == "随机")
     result["font_reference_randomized"] = bool(body.get("font_reference_enabled", body.get("fontEnabled", True)))
     if generation_mode == "iterate":

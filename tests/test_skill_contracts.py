@@ -319,7 +319,7 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("请在页面完成标注并点击提交", text)
         self.assertIn("scripts/package_accepted_images.py", text)
         self.assertIn("scripts/write_selection_feedback.py", text)
-        self.assertIn("固定规则 / 主观感受", text)
+        self.assertIn("固定规则反馈 / 主观感受反馈", text)
         self.assertIn("invalid_selection_feedback", text)
         self.assertIn("feedbacks", text)
         self.assertIn("最终回复必须包含", text)
@@ -566,6 +566,30 @@ class SkillContractTests(unittest.TestCase):
             self.assertIn("setup-status.json", text, skill_name)
             self.assertIn("usage-state.json", text, skill_name)
             self.assertIn("onion-help", text, skill_name)
+
+    def test_image_batch_render_and_laozhang_limits_are_documented(self):
+        image = (PLUGIN_ROOT / "skills" / "onion-image" / "SKILL.md").read_text(encoding="utf-8")
+        iterate = (PLUGIN_ROOT / "skills" / "onion-image-iterate" / "SKILL.md").read_text(encoding="utf-8")
+        env_template = (PLUGIN_ROOT / ".env.template").read_text(encoding="utf-8")
+        checklist = (PLUGIN_ROOT / "skills" / "onion-help" / "references" / "环境自检清单.md").read_text(encoding="utf-8")
+        recipe = (PLUGIN_ROOT / "shared" / "recipes" / "render-chain.md").read_text(encoding="utf-8")
+
+        for text in (image, iterate):
+            self.assertIn("batch_render.py", text)
+            self.assertIn("并发单位是 render job", text)
+            self.assertIn("不是套数", text)
+            self.assertIn("默认 6", text)
+            self.assertIn("降到 3", text)
+            self.assertIn("100 concurrent requests", text)
+            self.assertIn("双图/三图链式依赖", text)
+            self.assertIn("不要手工并发多个 render.py", text)
+        self.assertIn("ONION_IMAGE_CONCURRENCY=6", env_template)
+        self.assertIn("ONION_IMAGE_FALLBACK_CONCURRENCY=3", env_template)
+        self.assertIn("GPTImage2 Enterprise", checklist)
+        self.assertIn("3000 RPM", checklist)
+        self.assertIn("100 concurrent requests", checklist)
+        self.assertIn("batch_render.py", recipe)
+        self.assertIn("ONION_IMAGE_CONCURRENCY", recipe)
 
 
 if __name__ == "__main__":

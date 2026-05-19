@@ -76,6 +76,27 @@ class HelpSetupWizardTests(unittest.TestCase):
             self.assertNotIn("which lark-cli", result.stdout)
             self.assertNotIn("source ~/.onion-ad/.env", result.stdout)
 
+    def test_check_reports_laozhang_enterprise_concurrency_settings(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            result = self.run_setup(
+                "check",
+                home,
+                {
+                    "ONION_IMAGE_CONCURRENCY": "6",
+                    "ONION_IMAGE_FALLBACK_CONCURRENCY": "3",
+                },
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout)
+            image_api = payload["checks"]["image_api"]
+            self.assertEqual(image_api["provider"], "GPTImage2 Enterprise")
+            self.assertEqual(image_api["local_concurrency"], 6)
+            self.assertEqual(image_api["fallback_concurrency"], 3)
+            self.assertEqual(image_api["documented_rpm_per_key"], 3000)
+            self.assertEqual(image_api["documented_concurrent_requests_per_key"], 100)
+
     def test_ensure_auto_bootstraps_first_use_and_records_state(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)

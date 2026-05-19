@@ -47,6 +47,57 @@ def annotation_for(scheme: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def annotation_positions(annotation: dict[str, Any]) -> list[str]:
+    value = annotation.get("problem_positions")
+    if value is None:
+        value = annotation.get("problemPositions")
+    if value is None:
+        value = []
+    if isinstance(value, str):
+        value = [value]
+    if not isinstance(value, list):
+        return []
+    return [clean_text(item) for item in value if clean_text(item)]
+
+
+def skip_feedback(annotation: dict[str, Any]) -> bool:
+    if bool(annotation.get("skip_feedback") or annotation.get("skipFeedback")):
+        return True
+    reason = clean_text(annotation.get("reason"))
+    return reason in SKIP_REASONS
+
+
+def fixed_rule_feedback(annotation: dict[str, Any]) -> str:
+    return clean_text(
+        annotation.get("fixed_rule_feedback")
+        or annotation.get("fixedRuleFeedback")
+        or annotation.get("ruleFeedback")
+        or annotation.get("rule_feedback")
+    )
+
+
+def subjective_feedback(annotation: dict[str, Any]) -> str:
+    return clean_text(
+        annotation.get("subjective_feedback")
+        or annotation.get("subjectiveFeedback")
+        or annotation.get("note")
+    )
+
+
+def scheme_id_for(scheme: dict[str, Any], position: int) -> str:
+    return clean_text(scheme.get("set_id") or scheme.get("id") or f"set{position}")
+
+
+def meta_value(scheme: dict[str, Any], normalized: str, aliases: tuple[str, ...]) -> str:
+    meta = scheme.get("meta") if isinstance(scheme.get("meta"), dict) else {}
+    for source in (meta, scheme):
+        for key in aliases:
+            value = clean_text(source.get(key))
+            if value:
+                return value
+    return ""
+
+
 def rejected_schemes(selection: dict[str, Any]) -> list[dict[str, Any]]:
     rejected = selection.get("rejected_schemes")
     if isinstance(rejected, list):
@@ -78,25 +129,18 @@ def feedback_object_id(request_id: str, scheme: dict[str, Any], position: int) -
 
 
 def context_note(scheme: dict[str, Any], annotation: dict[str, Any], request_id: str, object_id: str) -> str:
-    meta = scheme.get("meta") if isinstance(scheme.get("meta"), dict) else {}
-    positions = annotation.get("problemPositions") or annotation.get("problem_positions") or []
-    if isinstance(positions, str):
-        positions = [positions]
     parts = [f"来源：{object_id}"]
     for label, keys in (
         ("渠道", ("渠道", "channel")),
         ("版位", ("版位", "placement")),
         ("图片形式", ("图片形式", "form")),
     ):
-        value = ""
-        for key in keys:
-            value = clean_text(meta.get(key) or scheme.get(key))
-            if value:
-                break
+        value = meta_value(scheme, label, keys)
         if value:
             parts.append(f"{label}：{value}")
+    positions = annotation_positions(annotation)
     if positions:
-        parts.append("问题图位：" + "、".join(clean_text(item) for item in positions if clean_text(item)))
+        parts.append("问题图位：" + "、".join(positions))
     if request_id and request_id not in object_id:
         parts.append(f"请求：{request_id}")
     return "；".join(parts)
@@ -107,17 +151,36 @@ def make_feedback_record(
     feedback_type: str,
     content: str,
     suggestion: str,
+    *,
+    request_id: str,
+    scheme_id: str,
+    scheme: dict[str, Any],
+    annotation: dict[str, Any],
 ) -> dict[str, Any]:
-    return {
-        "fields": {
-            "反馈对象类型": "图组",
-            "被反馈对象ID": object_id,
-            "反馈类型": feedback_type,
-            "反馈内容": content,
-            "建议改法": suggestion,
-            "处置状态": "待审",
-        }
+    fields = {
+        "反馈对象类型": "图组",
+        "被反馈对象ID": object_id,
+        "反馈类型": feedback_type,
+        "反馈内容": content,
+        "建议改法": suggestion,
+        "处置状态": "待审",
     }
+    if request_id:
+        fields["请求ID"] = request_id
+    if scheme_id:
+        fields["方案ID"] = scheme_id
+    positions = annotation_positions(annotation)
+    if positions:
+        fields["问题图位"] = "、".join(positions)
+    for field, aliases in (
+        ("渠道", ("渠道", "channel")),
+        ("版位", ("版位", "placement")),
+        ("图片形式", ("图片形式", "form", "image_form", "imageForm")),
+    ):
+        value = meta_value(scheme, field, aliases)
+        if value:
+            fields[field] = value
+    return {"fields": fields}
 
 
 def feedback_records_from_selection(selection: dict[str, Any]) -> list[dict[str, Any]]:
@@ -125,18 +188,39 @@ def feedback_records_from_selection(selection: dict[str, Any]) -> list[dict[str,
     records: list[dict[str, Any]] = []
     for position, scheme in enumerate(rejected_schemes(selection), start=1):
         annotation = annotation_for(scheme)
+        if skip_feedback(annotation):
+            continue
         object_id = feedback_object_id(request_id or "unknown-request", scheme, position)
+        scheme_id = scheme_id_for(scheme, position)
         note = context_note(scheme, annotation, request_id, object_id)
-        rule_feedback = clean_text(
-            annotation.get("ruleFeedback")
-            or annotation.get("rule_feedback")
-            or annotation.get("fixedRuleFeedback")
-        )
-        subjective_feedback = clean_text(annotation.get("note") or annotation.get("subjectiveFeedback"))
+        rule_feedback = fixed_rule_feedback(annotation)
+        user_subjective_feedback = subjective_feedback(annotation)
         if rule_feedback:
-            records.append(make_feedback_record(object_id, "固定规则", rule_feedback, note))
-        if subjective_feedback:
-            records.append(make_feedback_record(object_id, "主观评价", subjective_feedback, note))
+            records.append(
+                make_feedback_record(
+                    object_id,
+                    "固定规则反馈",
+                    rule_feedback,
+                    note,
+                    request_id=request_id,
+                    scheme_id=scheme_id,
+                    scheme=scheme,
+                    annotation=annotation,
+                )
+            )
+        if user_subjective_feedback:
+            records.append(
+                make_feedback_record(
+                    object_id,
+                    "主观感受反馈",
+                    user_subjective_feedback,
+                    note,
+                    request_id=request_id,
+                    scheme_id=scheme_id,
+                    scheme=scheme,
+                    annotation=annotation,
+                )
+            )
     return records
 
 
@@ -144,26 +228,11 @@ def selection_feedback_errors(selection: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     for position, scheme in enumerate(rejected_schemes(selection), start=1):
         annotation = annotation_for(scheme)
-        set_id = clean_text(scheme.get("set_id") or scheme.get("id") or f"set{position}")
-        reason = clean_text(annotation.get("reason"))
-        rule_feedback = clean_text(
-            annotation.get("ruleFeedback")
-            or annotation.get("rule_feedback")
-            or annotation.get("fixedRuleFeedback")
-        )
-        subjective_feedback = clean_text(annotation.get("note") or annotation.get("subjectiveFeedback"))
-
-        if not reason:
-            errors.append(f"{set_id}: 不采纳必须选择 固定规则 / 主观感受 / 跳过")
+        set_id = scheme_id_for(scheme, position)
+        if skip_feedback(annotation):
             continue
-        if reason in SKIP_REASONS:
-            continue
-        if reason == "固定规则" and not rule_feedback:
-            errors.append(f"{set_id}: 反馈类型为固定规则时必须填写固定规则问题")
-        elif reason in {"主观评价", "主观感受"} and not subjective_feedback:
-            errors.append(f"{set_id}: 反馈类型为主观感受时必须填写主观感受")
-        elif reason not in {"固定规则", "主观评价", "主观感受"} and not (rule_feedback or subjective_feedback):
-            errors.append(f"{set_id}: 有反馈类型时必须填写具体反馈内容，或选择跳过")
+        if not fixed_rule_feedback(annotation) and not subjective_feedback(annotation):
+            errors.append(f"{set_id}: 不采纳必须填写固定规则反馈 / 主观感受反馈 / 跳过反馈")
     return errors
 
 

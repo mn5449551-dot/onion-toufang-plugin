@@ -123,6 +123,28 @@ def check_pillow() -> dict[str, Any]:
         return {"status": "missing"}
 
 
+def parse_positive_int(value: str, default: int) -> int:
+    try:
+        parsed = int(str(value).strip())
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed > 0 else default
+
+
+def check_image_api(values: dict[str, str]) -> dict[str, Any]:
+    return {
+        "status": "ok",
+        "provider": "GPTImage2 Enterprise",
+        "model": "gpt-image-2",
+        "local_concurrency": parse_positive_int(env_value("ONION_IMAGE_CONCURRENCY", values), 6),
+        "fallback_concurrency": parse_positive_int(env_value("ONION_IMAGE_FALLBACK_CONCURRENCY", values), 3),
+        "documented_rpm_per_key": 3000,
+        "documented_concurrent_requests_per_key": 100,
+        "team_global_lock": False,
+        "rate_limit_behavior": "429/5xx/timeout degrade current batch to fallback concurrency and retry failed jobs once",
+    }
+
+
 def check_scripts_compile() -> dict[str, Any]:
     scripts = [
         PLUGIN_ROOT / "shared" / "scripts" / "base_ops.py",
@@ -131,6 +153,7 @@ def check_scripts_compile() -> dict[str, Any]:
         PLUGIN_ROOT / "shared" / "scripts" / "retry_pending.py",
         PLUGIN_ROOT / "shared" / "scripts" / "write_image_group.py",
         PLUGIN_ROOT / "skills" / "onion-image" / "scripts" / "render.py",
+        PLUGIN_ROOT / "skills" / "onion-image" / "scripts" / "batch_render.py",
         PLUGIN_ROOT / "skills" / "onion-image" / "scripts" / "image_workflow.py",
     ]
     missing = [str(path.relative_to(PLUGIN_ROOT)) for path in scripts if not path.is_file()]
@@ -160,6 +183,7 @@ def build_report(operation: str) -> dict[str, Any]:
         "lark_cli": check_lark_cli(),
         "python": check_python(),
         "pillow": check_pillow(),
+        "image_api": check_image_api(values),
         "scripts": check_scripts_compile(),
         "output_root": {"status": "ok", "path": str(output_root())},
     }

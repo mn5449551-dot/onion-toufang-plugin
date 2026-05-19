@@ -88,7 +88,11 @@ class InteractiveServerTests(unittest.TestCase):
         self.assertIn("target_size", html)
         self.assertIn("render_size", html)
         self.assertIn("disabled_reason", html)
-        self.assertIn('type="number"', html)
+        self.assertIn('type="text"', html)
+        self.assertIn('inputmode="numeric"', html)
+        self.assertIn('pattern="[0-9]*"', html)
+        self.assertIn("handleSetsKeydown", html)
+        self.assertIn("submitInFlight", html)
         self.assertIn("thumb-card", html)
         self.assertIn("fontEnabled", html)
         self.assertIn("ui_reference_note", html)
@@ -122,6 +126,18 @@ class InteractiveServerTests(unittest.TestCase):
         self.assertNotIn("__REQUEST_ID__", html)
         self.assertNotIn("__DATA_JSON__", html)
         self.assertIn("Request req-test", html)
+
+    def test_selection_template_supports_dual_feedback_skip_and_submit_lock(self):
+        template_path = PLUGIN_ROOT / "skills" / "onion-image" / "templates" / "image-selection.html"
+        template = template_path.read_text(encoding="utf-8")
+
+        self.assertIn("fixed_rule_feedback", template)
+        self.assertIn("subjective_feedback", template)
+        self.assertIn("skip_feedback", template)
+        self.assertIn("skipFeedbackAndNext", template)
+        self.assertIn("submitInFlight", template)
+        self.assertNotIn("reason: null", template)
+        self.assertNotIn("data-reason", template)
 
     def test_post_writes_image_config_selection_and_live_sets_json(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -205,6 +221,20 @@ class InteractiveServerTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "select at least one enabled placement"):
             self.server.normalize_config_result({"request_id": "req-test", "sets": 2}, by_id)
+
+    def test_config_result_rejects_invalid_set_count_instead_of_clamping(self):
+        slots = self.server.load_platform_slots()
+        by_id = {slot["id"]: slot for slot in slots}
+        slot_id = next(slot["id"] for slot in slots if slot.get("enabled"))
+
+        with self.assertRaisesRegex(ValueError, "sets must be between 1 and 50"):
+            self.server.normalize_config_result({"request_id": "req-test", "sets": 0, "placement_ids": [slot_id]}, by_id)
+
+        with self.assertRaisesRegex(ValueError, "sets must be between 1 and 50"):
+            self.server.normalize_config_result({"request_id": "req-test", "sets": 51, "placement_ids": [slot_id]}, by_id)
+
+        with self.assertRaisesRegex(ValueError, "sets must be an integer"):
+            self.server.normalize_config_result({"request_id": "req-test", "sets": "2.5", "placement_ids": [slot_id]}, by_id)
 
     def test_ui_reference_required_is_persisted_as_blocking_codex_upload(self):
         slots = self.server.load_platform_slots()

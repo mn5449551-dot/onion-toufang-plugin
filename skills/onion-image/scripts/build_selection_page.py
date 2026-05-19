@@ -100,6 +100,9 @@ def normalize_sets(data: Any, output_dir: Path) -> tuple[str, list[dict[str, Any
     for index, raw in enumerate(raw_sets, start=1):
         if not isinstance(raw, dict):
             raise ValueError("each set must be an object")
+        raw_status = str(raw.get("status") or "").strip().lower()
+        if raw_status and raw_status != "completed":
+            continue
 
         images = raw.get("thumb")
         if images is None:
@@ -118,6 +121,9 @@ def normalize_sets(data: Any, output_dir: Path) -> tuple[str, list[dict[str, Any
                 "source": normalize_source(raw),
             }
         )
+
+    if not normalized:
+        raise ValueError("sets data does not contain any completed image set")
 
     return request_id, normalized
 

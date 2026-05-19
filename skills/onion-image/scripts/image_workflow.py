@@ -257,7 +257,7 @@ def build_status(request_id: str, output_dir: Path) -> dict[str, Any]:
             "stage": "invalid_selection_feedback",
             "can_prompt": True,
             "errors": feedback_errors,
-            "next_action": "选择页里有不完整的不采纳反馈。请用户回到 image-selection.html，把不采纳原因改为固定规则 / 主观感受并填写文字，或选择跳过反馈后重新提交。",
+            "next_action": "选择页里有不完整的不采纳反馈。请用户回到 image-selection.html，把不采纳原因改为固定规则反馈 / 主观感受反馈并填写文字，或选择跳过反馈后重新提交。",
         }
 
     if feedback_records and not feedback_result_path.is_file():
@@ -266,7 +266,7 @@ def build_status(request_id: str, output_dir: Path) -> dict[str, Any]:
             "stage": "needs_feedback_write",
             "can_prompt": True,
             "feedback_count": len(feedback_records),
-            "next_action": "先运行 scripts/write_selection_feedback.py 把 rejected_schemes 里的固定规则 / 主观感受写入 feedbacks，再继续打包 accepted_schemes。",
+            "next_action": "先运行 scripts/write_selection_feedback.py 把 rejected_schemes 里的固定规则反馈 / 主观感受反馈写入 feedbacks，再继续打包 accepted_schemes。",
         }
 
     if not accepted:

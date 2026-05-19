@@ -72,6 +72,27 @@ class SelectionPageTests(unittest.TestCase):
             self.assertTrue(copied.is_file())
             self.assertEqual(copied.read_bytes(), b"fake")
 
+    def test_failed_render_sets_are_not_shown_for_selection(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp)
+            ok_image = out_dir / "set1_img1.png"
+            failed_image = out_dir / "set2_img1.png"
+            ok_image.write_bytes(b"fake")
+            failed_image.write_bytes(b"partial")
+
+            _, sets = self.builder.normalize_sets(
+                {
+                    "request_id": "req-test",
+                    "sets": [
+                        {"set_id": "set1", "status": "completed", "images": [{"path": str(ok_image)}]},
+                        {"set_id": "set2", "status": "failed", "images": [{"path": str(failed_image)}]},
+                    ],
+                },
+                out_dir,
+            )
+
+        self.assertEqual([item["set_id"] for item in sets], ["set1"])
+
     def test_cli_writes_html_with_embedded_sets_data(self):
         with tempfile.TemporaryDirectory() as tmp:
             out_dir = Path(tmp)
@@ -121,7 +142,7 @@ class SelectionPageTests(unittest.TestCase):
             self.assertIn("固定规则", text)
             self.assertIn("主观感受", text)
             self.assertIn("跳过反馈", text)
-            self.assertIn("不采纳但未选择反馈类型", text)
+            self.assertIn("不采纳但没有反馈", text)
             self.assertNotIn("clipboard.writeText", text)
             self.assertNotIn("复制下面的 JSON", text)
             self.assertNotIn("粘贴回 Claude Code", text)

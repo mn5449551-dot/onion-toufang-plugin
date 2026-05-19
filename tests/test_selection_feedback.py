@@ -27,12 +27,12 @@ class SelectionFeedbackTests(unittest.TestCase):
             "rejected_schemes": [
                 {
                     "set_id": "set2",
-                    "meta": {"渠道": "信息流", "版位": "OPPO 信息流"},
+                    "meta": {"渠道": "信息流", "版位": "OPPO 信息流", "图片形式": "单图"},
                     "annotation": {
-                        "reason": "固定规则",
-                        "ruleFeedback": "信息流不能出现学习机外壳。",
-                        "note": "整体太像硬广，氛围不够自然。",
-                        "problemPositions": ["图1", "图2"],
+                        "fixed_rule_feedback": "信息流不能出现学习机外壳。",
+                        "subjective_feedback": "整体太像硬广，氛围不够自然。",
+                        "problem_positions": ["图1", "图2"],
+                        "skip_feedback": False,
                     },
                 }
             ],
@@ -44,12 +44,18 @@ class SelectionFeedbackTests(unittest.TestCase):
         fixed, subjective = records
         self.assertEqual(fixed["fields"]["反馈对象类型"], "图组")
         self.assertEqual(fixed["fields"]["被反馈对象ID"], "req-feedback:set2")
-        self.assertEqual(fixed["fields"]["反馈类型"], "固定规则")
+        self.assertEqual(fixed["fields"]["反馈类型"], "固定规则反馈")
         self.assertEqual(fixed["fields"]["反馈内容"], "信息流不能出现学习机外壳。")
+        self.assertEqual(fixed["fields"]["请求ID"], "req-feedback")
+        self.assertEqual(fixed["fields"]["方案ID"], "set2")
+        self.assertEqual(fixed["fields"]["渠道"], "信息流")
+        self.assertEqual(fixed["fields"]["版位"], "OPPO 信息流")
+        self.assertEqual(fixed["fields"]["图片形式"], "单图")
+        self.assertEqual(fixed["fields"]["问题图位"], "图1、图2")
         self.assertIn("问题图位：图1、图2", fixed["fields"]["建议改法"])
         self.assertIn("渠道：信息流", fixed["fields"]["建议改法"])
         self.assertEqual(fixed["fields"]["处置状态"], "待审")
-        self.assertEqual(subjective["fields"]["反馈类型"], "主观评价")
+        self.assertEqual(subjective["fields"]["反馈类型"], "主观感受反馈")
         self.assertEqual(subjective["fields"]["反馈内容"], "整体太像硬广，氛围不够自然。")
 
     def test_skip_rejection_without_text_is_skipped(self):
@@ -60,9 +66,9 @@ class SelectionFeedbackTests(unittest.TestCase):
                 {
                     "set_id": "set3",
                     "annotation": {
-                        "reason": "跳过",
-                        "ruleFeedback": "",
-                        "note": "",
+                        "skip_feedback": True,
+                        "fixed_rule_feedback": "",
+                        "subjective_feedback": "",
                     },
                 }
             ],
@@ -83,8 +89,8 @@ class SelectionFeedbackTests(unittest.TestCase):
                             {
                                 "set_id": "set2",
                                 "annotation": {
-                                    "reason": "主观感受",
-                                    "note": "人物表情不够可信。",
+                                    "subjective_feedback": "人物表情不够可信。",
+                                    "skip_feedback": False,
                                 },
                             }
                         ],
@@ -114,7 +120,7 @@ class SelectionFeedbackTests(unittest.TestCase):
             self.assertTrue(payload["ok"])
             self.assertTrue(payload["dry_run"])
             self.assertEqual(payload["feedback_count"], 1)
-            self.assertEqual(payload["records"][0]["fields"]["反馈类型"], "主观评价")
+            self.assertEqual(payload["records"][0]["fields"]["反馈类型"], "主观感受反馈")
             persisted = json.loads(result_path.read_text(encoding="utf-8"))
             self.assertEqual(persisted["feedback_count"], 1)
 
@@ -126,8 +132,9 @@ class SelectionFeedbackTests(unittest.TestCase):
                 {
                     "set_id": "set2",
                     "annotation": {
-                        "reason": "固定规则",
-                        "ruleFeedback": "",
+                        "skip_feedback": False,
+                        "fixed_rule_feedback": "",
+                        "subjective_feedback": "",
                     },
                 }
             ],
@@ -136,7 +143,7 @@ class SelectionFeedbackTests(unittest.TestCase):
         errors = module.selection_feedback_errors(selection)
 
         self.assertEqual(len(errors), 1)
-        self.assertIn("固定规则", errors[0])
+        self.assertIn("固定规则反馈 / 主观感受反馈 / 跳过反馈", errors[0])
 
     def test_workflow_requires_feedback_write_when_rejected_feedback_exists(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -169,8 +176,8 @@ class SelectionFeedbackTests(unittest.TestCase):
                             {
                                 "set_id": "set2",
                                 "annotation": {
-                                    "reason": "固定规则",
-                                    "ruleFeedback": "应用商店图不能出现夸张提分承诺。",
+                                    "fixed_rule_feedback": "应用商店图不能出现夸张提分承诺。",
+                                    "skip_feedback": False,
                                 },
                             }
                         ],
@@ -226,7 +233,7 @@ class SelectionFeedbackTests(unittest.TestCase):
                         "rejected_schemes": [
                             {
                                 "set_id": "set2",
-                                "annotation": {"reason": "主观感受", "note": ""},
+                                "annotation": {"skip_feedback": False, "subjective_feedback": ""},
                             }
                         ],
                     },

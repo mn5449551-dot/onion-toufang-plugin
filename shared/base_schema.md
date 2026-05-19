@@ -34,7 +34,7 @@ Base URL: https://guanghe.feishu.cn/base/WIoGb0ksnaREvJsPtQCcW8Lsnfg
 | directions  | tblLWPSHrZT95oy7 | 素材方向（text）| 13 |
 | copies      | tblFdwXSbjANQjlh | 文案ID（auto_number C-XXX）| 14 |
 | image_groups| tblGpuukciptN3PP | 图组ID（auto_number G-XXX）| 25 |
-| feedbacks   | tblsPpNNcNH5KXoZ | 反馈ID（auto_number F-XXX）| 11 |
+| feedbacks   | tblsPpNNcNH5KXoZ | 反馈ID（auto_number F-XXX）| 17 |
 ```
 
 调 lark-cli 时优先用 `~/.onion-ad/.env` 里的 `ONION_BASE_APP_TOKEN` + 对应 `ONION_BASE_*_TID`。如果 env 缺失，再用本文件里的默认值兜底。
@@ -153,16 +153,22 @@ Base URL: https://guanghe.feishu.cn/base/WIoGb0ksnaREvJsPtQCcW8Lsnfg
 
 ---
 
-## 表 4：`feedbacks`（反馈收集池，11 字段）
+## 表 4：`feedbacks`（反馈收集池，17 字段）
 
 | 中文字段名 | 类型 | 必填 | 说明 |
 |---|---|---|---|
 | `反馈ID` | auto_number（F-XXX）| 自动 | |
 | `反馈对象类型` | select 单 | ✅ | 方向 / 文案 / 图组 / Skill本身 |
 | `被反馈对象ID` | text | ✅ | `D-001` / `C-101` / `G-201` / Skill 名 |
-| `反馈类型` | select 单 | ✅ | 固定规则 / 主观评价 |
+| `反馈类型` | select 单 | ✅ | 固定规则反馈 / 主观感受反馈 |
 | `反馈内容` | text | ✅ | 用户原话 |
 | `建议改法` | text | ❌ | |
+| `请求ID` | text | ❌ | 图片标注页对应 request_id，如 `img-20260519-xxx` |
+| `方案ID` | text | ❌ | 本地图片方案 set_id，如 `set2` |
+| `问题图位` | text | ❌ | 多个用 `、` 连接，如 `图1、图2` |
+| `渠道` | text | ❌ | 反馈发生时的渠道快照 |
+| `版位` | text | ❌ | 反馈发生时的版位快照 |
+| `图片形式` | text | ❌ | 单图 / 双图 / 三图 |
 | `处置状态` | select 单 | ✅ | 待审 / 已转SKILL.md规则 / 已采纳到下次迭代 / 已驳回 |
 | `处置备注` | text | ❌ | 维护人审完写 |
 | 通用 3 字段 | 自动 | | |
