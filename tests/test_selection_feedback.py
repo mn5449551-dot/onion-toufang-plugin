@@ -52,7 +52,7 @@ class SelectionFeedbackTests(unittest.TestCase):
         self.assertEqual(subjective["fields"]["反馈类型"], "主观评价")
         self.assertEqual(subjective["fields"]["反馈内容"], "整体太像硬广，氛围不够自然。")
 
-    def test_unclear_rejection_without_text_is_skipped(self):
+    def test_skip_rejection_without_text_is_skipped(self):
         module = load_feedback_module()
         selection = {
             "request_id": "req-feedback",
@@ -60,7 +60,7 @@ class SelectionFeedbackTests(unittest.TestCase):
                 {
                     "set_id": "set3",
                     "annotation": {
-                        "reason": "说不清楚",
+                        "reason": "跳过",
                         "ruleFeedback": "",
                         "note": "",
                     },
@@ -83,7 +83,7 @@ class SelectionFeedbackTests(unittest.TestCase):
                             {
                                 "set_id": "set2",
                                 "annotation": {
-                                    "reason": "主观评价",
+                                    "reason": "主观感受",
                                     "note": "人物表情不够可信。",
                                 },
                             }
@@ -117,6 +117,26 @@ class SelectionFeedbackTests(unittest.TestCase):
             self.assertEqual(payload["records"][0]["fields"]["反馈类型"], "主观评价")
             persisted = json.loads(result_path.read_text(encoding="utf-8"))
             self.assertEqual(persisted["feedback_count"], 1)
+
+    def test_invalid_rejection_feedback_blocks_write(self):
+        module = load_feedback_module()
+        selection = {
+            "request_id": "req-feedback",
+            "rejected_schemes": [
+                {
+                    "set_id": "set2",
+                    "annotation": {
+                        "reason": "固定规则",
+                        "ruleFeedback": "",
+                    },
+                }
+            ],
+        }
+
+        errors = module.selection_feedback_errors(selection)
+
+        self.assertEqual(len(errors), 1)
+        self.assertIn("固定规则", errors[0])
 
     def test_workflow_requires_feedback_write_when_rejected_feedback_exists(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -180,6 +200,59 @@ class SelectionFeedbackTests(unittest.TestCase):
             self.assertEqual(payload["stage"], "needs_feedback_write")
             self.assertIn("write_selection_feedback.py", payload["next_action"])
             self.assertTrue(payload["artifacts"]["selection_result"])
+            self.assertFalse(payload["can_write_base"])
+
+    def test_workflow_blocks_incomplete_rejected_feedback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "image-config-result.json").write_text(
+                json.dumps(
+                    {
+                        "request_id": "req-feedback",
+                        "placements": [{"id": "p1", "enabled": True, "render_size": "1024x1024"}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (root / "image-sets.json").write_text(
+                json.dumps({"request_id": "req-feedback", "sets": [{"set_id": "set1", "thumb": ["a.png"]}]}),
+                encoding="utf-8",
+            )
+            (root / "image-selection-result.json").write_text(
+                json.dumps(
+                    {
+                        "request_id": "req-feedback",
+                        "accepted_schemes": [{"set_id": "set1", "thumb": ["a.png"]}],
+                        "rejected_schemes": [
+                            {
+                                "set_id": "set2",
+                                "annotation": {"reason": "主观感受", "note": ""},
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(WORKFLOW_SCRIPT),
+                    "status",
+                    "--request-id",
+                    "req-feedback",
+                    "--output-dir",
+                    str(root),
+                ],
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True,
+            )
+
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload["stage"], "invalid_selection_feedback")
             self.assertFalse(payload["can_write_base"])
 
 

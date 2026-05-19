@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -20,7 +21,7 @@ SHARED_SCRIPTS = PLUGIN_ROOT / "shared" / "scripts"
 if str(SHARED_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SHARED_SCRIPTS))
 
-from runtime_paths import output_root, setup_status_path  # noqa: E402
+from runtime_paths import output_root, setup_status_path, usage_state_path  # noqa: E402
 
 
 ENV_DIR = Path.home() / ".onion-ad"
@@ -28,6 +29,20 @@ ENV_FILE = ENV_DIR / ".env"
 ENV_TEMPLATE = PLUGIN_ROOT / ".env.template"
 PLACEHOLDER_MARKERS = ("你的", "占位", "sk-xxx", "sk-your-key", "your-key")
 PLUGIN_VERSION = "1.1.0"
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def load_json_file(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def platform_profile(system_name: str | None = None) -> dict[str, str]:
@@ -156,6 +171,7 @@ def build_report(operation: str) -> dict[str, Any]:
         "platform": profile,
         "output_root": str(output_root()),
         "setup_status_path": str(setup_status_path()),
+        "usage_state_path": str(usage_state_path()),
         "ready": not actions and all(item.get("status") == "ok" for item in checks.values()),
         "checks": checks,
         "next_actions": actions,
@@ -181,6 +197,28 @@ def bootstrap() -> dict[str, Any]:
     return report
 
 
+def ensure() -> dict[str, Any]:
+    missing_reasons = []
+    if not usage_state_path().is_file():
+        missing_reasons.append("usage_state_missing")
+    if not setup_status_path().is_file():
+        missing_reasons.append("setup_status_missing")
+    if not ENV_FILE.is_file():
+        missing_reasons.append("env_file_missing")
+
+    if missing_reasons:
+        report = bootstrap()
+        report["operation"] = "ensure"
+        report["auto_bootstrapped"] = True
+        report["bootstrap_reason"] = missing_reasons
+        return report
+
+    report = build_report("ensure")
+    report["auto_bootstrapped"] = False
+    write_setup_status(report)
+    return report
+
+
 def write_setup_status(report: dict[str, Any]) -> None:
     path = setup_status_path()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -191,23 +229,65 @@ def write_setup_status(report: dict[str, Any]) -> None:
         "ready": report["ready"],
         "checks": report["checks"],
         "next_actions": report["next_actions"],
+        "updated_at": now_iso(),
     }
     temp = path.with_suffix(path.suffix + ".tmp")
     temp.write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8")
     temp.replace(path)
 
 
+def write_usage_state(report: dict[str, Any]) -> dict[str, Any]:
+    path = usage_state_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    existing = load_json_file(path)
+    first_use = not existing
+    timestamp = now_iso()
+    operation = str(report.get("operation") or "unknown")
+    bootstrap_count = int(existing.get("bootstrap_count") or 0)
+    check_count = int(existing.get("check_count") or 0)
+    if operation == "bootstrap" or report.get("auto_bootstrapped"):
+        bootstrap_count += 1
+    if operation in {"check", "doctor", "ensure"}:
+        check_count += 1
+
+    state = {
+        "first_seen_at": existing.get("first_seen_at") or timestamp,
+        "last_seen_at": timestamp,
+        "last_operation": operation,
+        "plugin_version": report.get("plugin_version"),
+        "platform": report.get("platform"),
+        "output_root": report.get("output_root"),
+        "setup_status_path": report.get("setup_status_path"),
+        "ready": bool(report.get("ready")),
+        "bootstrap_count": bootstrap_count,
+        "check_count": check_count,
+        "last_bootstrap_at": timestamp
+        if operation == "bootstrap" or report.get("auto_bootstrapped")
+        else existing.get("last_bootstrap_at"),
+        "last_check_at": timestamp if operation in {"check", "doctor", "ensure"} else existing.get("last_check_at"),
+    }
+    temp = path.with_suffix(path.suffix + ".tmp")
+    temp.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+    temp.replace(path)
+    report["first_use"] = first_use
+    report["usage_state"] = state
+    return state
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Onion plugin setup and readiness checks.")
-    parser.add_argument("command", choices=("check", "bootstrap", "doctor"))
+    parser.add_argument("command", choices=("check", "bootstrap", "doctor", "ensure"))
     args = parser.parse_args(argv)
 
     try:
         if args.command == "bootstrap":
             report = bootstrap()
+        elif args.command == "ensure":
+            report = ensure()
         else:
             report = build_report(args.command)
             write_setup_status(report)
+        write_usage_state(report)
         print(json.dumps(report, ensure_ascii=False, indent=2))
         return 0
     except Exception as exc:

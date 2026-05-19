@@ -76,11 +76,13 @@
 |---|---|
 | `accepted_schemes` | 只用于 `image_groups` 入库，不当作反馈 |
 | `rejected_schemes[].annotation.ruleFeedback` | 写 `反馈对象类型=图组`、`反馈类型=固定规则` |
-| `rejected_schemes[].annotation.note` | 写 `反馈对象类型=图组`、`反馈类型=主观评价` |
-| `rejected_schemes[].annotation.reason=说不清楚` 且没有具体文字 | 不写入 |
+| `rejected_schemes[].annotation.note` | 写 `反馈对象类型=图组`、`反馈类型=主观评价`；页面上叫“主观感受” |
+| `rejected_schemes[].annotation.reason=跳过` 且没有具体文字 | 不写入 |
 | `pending_scheme_ids` | 不写入，等待用户后续决定 |
 
 未采纳的新图通常还没有 G-ID，`被反馈对象ID` 使用 `<request_id>:<set_id>` 作为临时锚点；如果选择结果里已有 `G-XXX` 或原图组 ID，则优先使用真实图组 ID。脚本会把渠道、版位、图片形式和问题图位写进 `建议改法` 作为分析上下文。
+
+标注页的不采纳必须三选一：`固定规则` 要填写固定规则问题，`主观感受` 要填写具体主观反馈，`跳过反馈` 不写入 feedbacks。只要填写了固定规则或主观感受，`write_selection_feedback.py` 必须写入；如果 JSON 里不采纳但缺少理由或文字，状态机应停在 `invalid_selection_feedback`，不能继续打包或写图组。
 
 ---
 
@@ -97,7 +99,7 @@ python3 "$PLUGIN_ROOT/shared/scripts/write_record.py" \
 
 脚本会使用 `~/.onion-ad/.env` 的 Base 配置；写入失败时按共享 Base 操作逻辑重试，仍失败则进入 `~/.onion-ad/pending.jsonl`，后续由维护人或用户明确要求时运行补偿脚本处理。
 
-图片选择页的固定规则 / 主观评价走专用脚本，避免 Agent 手工解析 JSON：
+图片选择页的固定规则 / 主观感受走专用脚本，避免 Agent 手工解析 JSON：
 
 ```bash
 PLUGIN_ROOT=/path/to/onion-toufang-plugin
@@ -111,4 +113,4 @@ python3 "$PLUGIN_ROOT/skills/onion-image/scripts/write_selection_feedback.py" \
 
 ## 不写入时的处理
 
-没有显著反馈时直接继续主流程，不需要告诉用户“本轮没有反馈”。反馈系统的价值来自长期少量高质量样本，不来自每轮强行留痕。
+没有显著反馈、或用户在标注页选择“跳过反馈”时直接继续主流程，不需要告诉用户“本轮没有反馈”。反馈系统的价值来自长期少量高质量样本，不来自每轮强行留痕。

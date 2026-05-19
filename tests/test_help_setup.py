@@ -38,11 +38,15 @@ class HelpSetupWizardTests(unittest.TestCase):
             payload = json.loads(result.stdout)
             env_file = home / ".onion-ad" / ".env"
             status_file = home / ".onion-ad" / "setup-status.json"
+            usage_file = home / ".onion-ad" / "usage-state.json"
             self.assertTrue(env_file.is_file())
             self.assertTrue((home / "runtime").is_dir())
             self.assertTrue(status_file.is_file())
+            self.assertTrue(usage_file.is_file())
             self.assertEqual(payload["operation"], "bootstrap")
             self.assertIn(payload["platform"]["family"], {"mac", "windows", "linux", "other"})
+            self.assertTrue(payload["first_use"])
+            self.assertEqual(payload["usage_state"]["bootstrap_count"], 1)
             self.assertNotIn("LAOZHANG_API_KEY=", result.stdout)
             self.assertNotIn("sk-你的", result.stdout)
 
@@ -71,6 +75,24 @@ class HelpSetupWizardTests(unittest.TestCase):
             self.assertIn("install", " ".join(payload["next_actions"]).lower())
             self.assertNotIn("which lark-cli", result.stdout)
             self.assertNotIn("source ~/.onion-ad/.env", result.stdout)
+
+    def test_ensure_auto_bootstraps_first_use_and_records_state(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            result = self.run_setup("ensure", home)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout)
+            usage_file = home / ".onion-ad" / "usage-state.json"
+            self.assertEqual(payload["operation"], "ensure")
+            self.assertTrue(payload["auto_bootstrapped"])
+            self.assertTrue(payload["first_use"])
+            self.assertTrue(usage_file.is_file())
+            usage = json.loads(usage_file.read_text(encoding="utf-8"))
+            self.assertIn("first_seen_at", usage)
+            self.assertIn("last_seen_at", usage)
+            self.assertEqual(usage["last_operation"], "ensure")
+            self.assertEqual(usage["bootstrap_count"], 1)
 
 
 if __name__ == "__main__":

@@ -23,7 +23,7 @@ if str(SHARED_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SHARED_SCRIPTS))
 
 from runtime_paths import request_output_dir  # noqa: E402
-from write_selection_feedback import feedback_records_from_selection
+from write_selection_feedback import feedback_records_from_selection, selection_feedback_errors
 
 
 ENV_FILE = Path.home() / ".onion-ad" / ".env"
@@ -159,6 +159,7 @@ def build_status(request_id: str, output_dir: Path) -> dict[str, Any]:
     image_sets = load_json(sets_path)
     selection = load_json(selection_path)
     accepted = accepted_schemes(selection)
+    feedback_errors = selection_feedback_errors(selection) if selection else []
     feedback_records = feedback_records_from_selection(selection) if selection else []
 
     artifacts = {
@@ -247,13 +248,22 @@ def build_status(request_id: str, output_dir: Path) -> dict[str, Any]:
             "next_action": "构建或打开 image-selection.html，让用户完成采纳/不采纳标注并提交。",
         }
 
+    if feedback_errors:
+        return {
+            **base,
+            "stage": "invalid_selection_feedback",
+            "can_prompt": True,
+            "errors": feedback_errors,
+            "next_action": "选择页里有不完整的不采纳反馈。请用户回到 image-selection.html，把不采纳原因改为固定规则 / 主观感受并填写文字，或选择跳过反馈后重新提交。",
+        }
+
     if feedback_records and not feedback_result_path.is_file():
         return {
             **base,
             "stage": "needs_feedback_write",
             "can_prompt": True,
             "feedback_count": len(feedback_records),
-            "next_action": "先运行 scripts/write_selection_feedback.py 把 rejected_schemes 里的固定规则 / 主观评价写入 feedbacks，再继续打包 accepted_schemes。",
+            "next_action": "先运行 scripts/write_selection_feedback.py 把 rejected_schemes 里的固定规则 / 主观感受写入 feedbacks，再继续打包 accepted_schemes。",
         }
 
     if not accepted:

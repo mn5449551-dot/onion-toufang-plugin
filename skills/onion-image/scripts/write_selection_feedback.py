@@ -21,6 +21,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 PLUGIN_ROOT = SCRIPT_DIR.parents[2]
 WRITE_RECORD_SCRIPT = PLUGIN_ROOT / "shared" / "scripts" / "write_record.py"
 DEFAULT_FEEDBACK_TABLE_ID = "tblsPpNNcNH5KXoZ"
+SKIP_REASONS = {"跳过", "跳过反馈", "说不清楚", "无具体反馈"}
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -139,6 +140,33 @@ def feedback_records_from_selection(selection: dict[str, Any]) -> list[dict[str,
     return records
 
 
+def selection_feedback_errors(selection: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    for position, scheme in enumerate(rejected_schemes(selection), start=1):
+        annotation = annotation_for(scheme)
+        set_id = clean_text(scheme.get("set_id") or scheme.get("id") or f"set{position}")
+        reason = clean_text(annotation.get("reason"))
+        rule_feedback = clean_text(
+            annotation.get("ruleFeedback")
+            or annotation.get("rule_feedback")
+            or annotation.get("fixedRuleFeedback")
+        )
+        subjective_feedback = clean_text(annotation.get("note") or annotation.get("subjectiveFeedback"))
+
+        if not reason:
+            errors.append(f"{set_id}: 不采纳必须选择 固定规则 / 主观感受 / 跳过")
+            continue
+        if reason in SKIP_REASONS:
+            continue
+        if reason == "固定规则" and not rule_feedback:
+            errors.append(f"{set_id}: 反馈类型为固定规则时必须填写固定规则问题")
+        elif reason in {"主观评价", "主观感受"} and not subjective_feedback:
+            errors.append(f"{set_id}: 反馈类型为主观感受时必须填写主观感受")
+        elif reason not in {"固定规则", "主观评价", "主观感受"} and not (rule_feedback or subjective_feedback):
+            errors.append(f"{set_id}: 有反馈类型时必须填写具体反馈内容，或选择跳过")
+    return errors
+
+
 def write_records(records: list[dict[str, Any]], table_id: str, base_token: str | None, dry_run: bool) -> tuple[int, dict[str, Any]]:
     command = [
         sys.executable,
@@ -185,7 +213,21 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         selection_path = Path(args.selection_result).expanduser().resolve()
-        records = feedback_records_from_selection(load_json(selection_path))
+        selection = load_json(selection_path)
+        feedback_errors = selection_feedback_errors(selection)
+        if feedback_errors:
+            result_path = Path(args.write_result).expanduser().resolve() if args.write_result else default_write_result(selection_path)
+            payload = {
+                "ok": False,
+                "error": "invalid_rejected_feedback",
+                "errors": feedback_errors,
+                "selection_result": str(selection_path),
+                "write_result": str(result_path),
+            }
+            persist_result(result_path, payload)
+            print(json.dumps(payload, ensure_ascii=False), file=sys.stderr)
+            return 2
+        records = feedback_records_from_selection(selection)
         result_path = Path(args.write_result).expanduser().resolve() if args.write_result else default_write_result(selection_path)
         if not records:
             payload = {

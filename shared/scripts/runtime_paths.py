@@ -24,5 +24,13 @@ def request_output_dir(request_id: str) -> Path:
     return output_root() / str(request_id)
 
 
+def user_state_dir() -> Path:
+    return Path.home() / ".onion-ad"
+
+
 def setup_status_path() -> Path:
-    return Path.home() / ".onion-ad" / "setup-status.json"
+    return user_state_dir() / "setup-status.json"
+
+
+def usage_state_path() -> Path:
+    return user_state_dir() / "usage-state.json"

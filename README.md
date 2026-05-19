@@ -52,7 +52,7 @@ lark-cli auth login
 /plugin install onion-toufang@onion-toufang
 
 # 4. 一键初始化本机配置（Mac / Windows 会自动适配用户目录和临时目录）
-python3 skills/onion-help/scripts/setup_wizard.py bootstrap
+python3 skills/onion-help/scripts/setup_wizard.py ensure
 # 然后编辑用户目录下 .onion-ad/.env，填入 LAOZHANG_API_KEY
 
 # 5. 出图上传前会压缩图片，使用 onion-image / onion-image-iterate 的成员需要 Pillow

@@ -8,7 +8,7 @@ SETS_DATA schema:
     "imageForm": "single | double | triple",
     "decision": "accepted | rejected | pending",
     "images": [{"index": 1, "path": "/tmp/.../set1_img1.png", "role": "base | branch"}],
-    "reason": "说不清楚 | 固定规则 | 主观评价 | null",
+    "reason": "固定规则 | 主观感受 | 跳过 | null",
     "ruleFeedback": "string | null",
     "note": "string | null",
     "problemPositions": [1]
@@ -307,7 +307,7 @@ SETS_DATA schema:
     <aside class="panel right-aside" id="annotation-panel">
       <h3>图片方案标注</h3>
       <p style="font-size: 12px; color: var(--muted); margin: 6px 0 14px;">
-        采纳整套，或不采纳并填反馈。可勾选问题位置标注哪张有问题。
+        采纳整套，或不采纳并选择反馈类型。可勾选问题位置标注哪张有问题。
       </p>
 
       <div class="actions" style="display: grid; gap: 8px;">
@@ -317,15 +317,16 @@ SETS_DATA schema:
 
       <div id="reject-panel" style="display: none;">
         <div class="field">
-          <label>反馈类型（不采纳时填）</label>
+          <label>反馈类型（不采纳时必选）</label>
           <div>
-            <span class="pill" data-reason="说不清楚">说不清楚</span>
             <span class="pill" data-reason="固定规则">固定规则</span>
-            <span class="pill" data-reason="主观评价">主观评价</span>
+            <span class="pill" data-reason="主观感受">主观感受</span>
+            <span class="pill" data-reason="跳过">跳过反馈</span>
           </div>
           <p style="font-size: 11px; color: var(--muted); margin-top: 6px;">
             <strong>固定规则</strong>：能写进 SKILL.md 的硬约束（如手机不能有刘海屏）<br>
-            <strong>主观评价</strong>：说不清的吐槽 / 风格偏好
+            <strong>主观感受</strong>：审美、风格、吸引力等主观判断<br>
+            <strong>跳过反馈</strong>：不采纳但暂时不沉淀原因
           </p>
         </div>
 
@@ -382,7 +383,7 @@ SETS_DATA schema:
       return {
         id: setId,
         decision: null,        // 'accepted' | 'rejected' | null
-        reason: null,          // 说不清楚 / 固定规则 / 主观评价
+        reason: null,          // 固定规则 / 主观感受 / 跳过
         ruleFeedback: '',
         note: '',
         problemPositions: [],  // [1, 2, 3] 之子集
@@ -491,9 +492,9 @@ SETS_DATA schema:
       document.getElementById('note').value = st.note;
       // 显示对应 field
       document.getElementById('field-rule').style.display =
-        (st.reason === '固定规则' || (st.reason !== '说不清楚' && st.reason !== null)) ? 'block' : 'none';
+        (st.reason === '固定规则') ? 'block' : 'none';
       document.getElementById('field-note').style.display =
-        (st.reason === '主观评价' || (st.reason !== '说不清楚' && st.reason !== null)) ? 'block' : 'none';
+        (st.reason === '主观感受') ? 'block' : 'none';
       // 当 decision === 'rejected' 显示 reject panel
       rejectPanel.style.display = (st.decision === 'rejected') ? 'block' : 'none';
     }
@@ -545,13 +546,16 @@ SETS_DATA schema:
     }
     function confirmReject() {
       const st = stateForIndex(curIndex);
-      // 校验：选了"说不清楚"可以不填；否则至少一项
-      if (st.reason !== '说不清楚' && !st.ruleFeedback.trim() && !st.note.trim()) {
-        alert('不采纳时请至少填一项（固定规则 / 主观感受），或选「说不清楚」');
-        return;
-      }
       if (!st.reason) {
         alert('请先选反馈类型');
+        return;
+      }
+      if (st.reason === '固定规则' && !st.ruleFeedback.trim()) {
+        alert('选择「固定规则」时，请填写具体规则问题');
+        return;
+      }
+      if (st.reason === '主观感受' && !st.note.trim()) {
+        alert('选择「主观感受」时，请填写具体主观反馈');
         return;
       }
       // 跳下一套
@@ -562,7 +566,8 @@ SETS_DATA schema:
     function setReason(r) {
       const st = stateForIndex(curIndex);
       st.reason = (st.reason === r) ? null : r;
-      if (st.reason === '说不清楚') { st.ruleFeedback = ''; st.note = ''; }
+      if (st.reason !== '固定规则') st.ruleFeedback = '';
+      if (st.reason !== '主观感受') st.note = '';
       renderRightPanel();
     }
     function resetCur() {
@@ -589,6 +594,25 @@ SETS_DATA schema:
         scheme,
         state: stateForIndex(i),
       }));
+      for (const item of annotated) {
+        const st = item.state;
+        if (st.decision !== 'rejected') continue;
+        if (!st.reason) {
+          alert(`套 ${item.scheme.set_id} 不采纳但未选择反馈类型。请选择固定规则、主观感受或跳过反馈。`);
+          selectIndex(SETS.findIndex(s => s.set_id === item.scheme.set_id));
+          return;
+        }
+        if (st.reason === '固定规则' && !st.ruleFeedback.trim()) {
+          alert(`套 ${item.scheme.set_id} 选择了固定规则，请填写具体规则问题。`);
+          selectIndex(SETS.findIndex(s => s.set_id === item.scheme.set_id));
+          return;
+        }
+        if (st.reason === '主观感受' && !st.note.trim()) {
+          alert(`套 ${item.scheme.set_id} 选择了主观感受，请填写具体反馈。`);
+          selectIndex(SETS.findIndex(s => s.set_id === item.scheme.set_id));
+          return;
+        }
+      }
       const pending = annotated.filter(item => item.state.decision === null).length;
       if (pending > 0 && !confirm(`还有 ${pending} 套未标注，仍要提交吗？未标注将跳过，不写入 Base。`)) return;
       const accepted = annotated.filter(item => item.state.decision === 'accepted');

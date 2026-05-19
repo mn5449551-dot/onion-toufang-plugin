@@ -33,7 +33,7 @@
 - `canonical/渠道与平台.md` 的新平台 MVP 只列 OPPO/vivo/小米；当前 onion Skill 仍保留华为/荣耀等既有投放版位。改渠道范围会影响现有 Base 选项和历史数据，需业务确认后再改。
 - 业务知识的方向字段是 10 字段模型；当前 Base 的 directions 是 6 个核心业务字段 + 辅助字段。当前只吸收 10 字段里的语义，不改 Base schema。
 - `canonical/字段定义-图片.md` 包含 `fileSizeKb`、`width`、`height`、`fileFormat` 等资产字段；当前 Base 没有这些字段。图片上传已压缩，但是否增加可写元数据字段需单独确认。
-- `canonical/拒绝原因.md` 只保留“说不清楚”作为快捷拒绝原因；当前 feedbacks 表保留更丰富反馈类型。暂不收窄反馈体系。
+- 图片标注页的不采纳理由保留 `固定规则 / 主观感受 / 跳过反馈`；当前 feedbacks 表只写固定规则和主观感受，跳过不入库。
 
 ## 使用边界
 
