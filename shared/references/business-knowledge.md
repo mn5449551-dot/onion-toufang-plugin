@@ -18,6 +18,10 @@
 
 不要把整包业务知识塞进任一 `SKILL.md`。Skill 只保留决策原则和少量事实，具体经验放在 reference，按任务阶段读取。
 
+功能事实不足时，优先加载对应功能知识库；仍不足时追问用户。不要为了写出强共鸣而编功能，也不要把不同功能事实互相迁移。
+
+Creative Brief 使用 `shared/references/creative-brief.md` 的规则：先建立“功能 × 用户”理解，再进入方向、文案、图片 prompt 或扩同类创意。机械流程、Base 写入、图片压缩和打包不需要业务知识补全。
+
 ## 阶段对应
 
 | Skill | 可参考的业务知识 | 用途 |
@@ -26,6 +30,14 @@
 | `onion-copy` | `canonical/字段定义-文案.md`、`canonical/广告主语约束.md`、`references/for-stage-3b/*`、`shared/knowledge/卖点库.md`、`shared/knowledge/功能-洋葱私教班.md` | 文案字段、copyType、渠道语气、功能事实和课程卖点 |
 | `onion-image` | `canonical/字段定义-图片.md`、`canonical/广告主语约束.md`、`references/for-stage-4b/*` | 图组字段、视觉合规、系列一致性、CTA/Logo/IP |
 | `onion-image-iterate` | `references/for-stage-4b/图片生成参考/series-consistency.md`、`image-to-image-tips.md` | SAME/CHANGE、基准图继承、Logo/IP/CTA 一致性 |
+
+## 功能事实边界
+
+| 功能 | 主要知识源 | 不能迁移 |
+|---|---|---|
+| 拍题精学 | `shared/knowledge/卖点库.md`、拍题相关用户资料、运营认可文案提炼 | 不把私教班的诊断分班、AI+真人辅导写成拍题精学能力 |
+| 洋葱私教班 | `shared/knowledge/功能-洋葱私教班.md` | 不把拍题精学的一拍解析、分步讲解、继续追问写成私教班独有能力 |
+| 其它功能 | 卖点库、用户提供资料、Base 历史记录 | 不从拍题精学或私教班硬套场景和功能词 |
 
 ## 冲突处理
 

@@ -261,6 +261,62 @@ class SkillContractTests(unittest.TestCase):
             skill = (PLUGIN_ROOT / "skills" / skill_name / "SKILL.md").read_text(encoding="utf-8")
             self.assertIn("../../shared/references/execution-policy.md", skill, skill_name)
 
+    def test_creative_brief_reference_exists_and_is_progressive(self):
+        path = PLUGIN_ROOT / "shared" / "references" / "creative-brief.md"
+        self.assertTrue(path.exists())
+        text = path.read_text(encoding="utf-8")
+
+        self.assertIn("渐进式工作记忆", text)
+        self.assertIn("不是用户必填表单", text)
+        self.assertIn("不是 Base 字段", text)
+        self.assertIn("功能事实 → 目标用户 → 具体场景 → 用户阻碍/情绪 → 产品动作 → 可感知变化", text)
+        self.assertIn("只服务创意生成和跨 skill 心智继承", text)
+        self.assertIn("不服务机械流程", text)
+        self.assertIn("产品动作不清楚", text)
+        self.assertIn("先查知识库", text)
+        self.assertIn("仍不清楚就追问", text)
+        self.assertIn("学生视角不是强制第一人称", text)
+        self.assertIn("不能为了共鸣编功能", text)
+
+    def test_input_envelope_defines_optional_creative_brief(self):
+        text = (PLUGIN_ROOT / "shared" / "references" / "input-envelope.md").read_text(encoding="utf-8")
+
+        self.assertIn('"creative_brief"', text)
+        self.assertIn('"level": "full|lite|unknown"', text)
+        self.assertIn("Agent 内部交接结构", text)
+        self.assertIn("不要求用户填写", text)
+        self.assertIn("不一定写 Base", text)
+        self.assertIn("关键功能事实缺失", text)
+
+    def test_core_skills_reference_creative_brief(self):
+        for skill_name in ("onion-direction", "onion-copy", "onion-image", "onion-image-iterate"):
+            text = (PLUGIN_ROOT / "skills" / skill_name / "SKILL.md").read_text(encoding="utf-8")
+            self.assertIn("../../shared/references/creative-brief.md", text, skill_name)
+
+    def test_creative_brief_keeps_copy_function_grounded(self):
+        copy_skill = (PLUGIN_ROOT / "skills" / "onion-copy" / "SKILL.md").read_text(encoding="utf-8")
+        channel = (PLUGIN_ROOT / "skills" / "onion-copy" / "references" / "渠道.md").read_text(encoding="utf-8")
+        fields = (PLUGIN_ROOT / "skills" / "onion-copy" / "references" / "字段定义-文案.md").read_text(encoding="utf-8")
+        mistakes = (PLUGIN_ROOT / "skills" / "onion-copy" / "references" / "常见误区.md").read_text(encoding="utf-8")
+
+        self.assertIn("功能 × 用户", copy_skill)
+        self.assertIn("学生视角不是强制第一人称", copy_skill)
+        self.assertIn("产品动作不清楚时先查知识库或追问", copy_skill)
+        self.assertIn("不能为了共鸣编功能", copy_skill)
+        self.assertIn("具体场景 + 具体情绪 + 产品动作 + 可感知变化", channel)
+        self.assertIn("具体场景 + 具体情绪 + 产品动作 + 可感知变化", fields)
+        self.assertIn("把拍题精学的作业卡题场景套到私教班", mistakes)
+        self.assertIn("为了共鸣而编功能", mistakes)
+
+    def test_image_and_iterate_use_brief_without_blocking_mechanical_paths(self):
+        image = (PLUGIN_ROOT / "skills" / "onion-image" / "SKILL.md").read_text(encoding="utf-8")
+        iterate = (PLUGIN_ROOT / "skills" / "onion-image-iterate" / "SKILL.md").read_text(encoding="utf-8")
+
+        self.assertIn("视觉化 Creative Brief", image)
+        self.assertIn("配置、压缩、打包、Base 写入、状态查询不需要 Creative Brief", image)
+        self.assertIn("纯视觉微调不强制补全功能事实", iterate)
+        self.assertIn("换卖点、换功能、换文案", iterate)
+
     def test_copy_quality_guardrails_include_real_bad_phrases(self):
         fields = (PLUGIN_ROOT / "skills" / "onion-copy" / "references" / "字段定义-文案.md").read_text(encoding="utf-8")
         mistakes = (PLUGIN_ROOT / "skills" / "onion-copy" / "references" / "常见误区.md").read_text(encoding="utf-8")

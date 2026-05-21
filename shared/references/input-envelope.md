@@ -41,6 +41,18 @@
     "image_form": "",
     "copy": {}
   },
+  "creative_brief": {
+    "level": "full|lite|unknown",
+    "feature": "",
+    "target_user": "",
+    "user_scene": "",
+    "barrier_or_emotion": "",
+    "product_action": "",
+    "perceived_change": "",
+    "anchor_source": "",
+    "fact_source": "user|knowledge|base|inferred",
+    "missing": []
+  },
   "visual": {
     "placements": [],
     "sets": 1,
@@ -89,6 +101,18 @@
 ```
 
 字段为空不代表错误。每个 skill 只校验自己负责的切片。
+
+## Creative Brief 边界
+
+`creative_brief` 是 Agent 内部交接结构，不要求用户填写，也不一定写 Base。它用于在方向、文案、图片 prompt 和扩同类创意之间传递“功能 × 用户”理解；不是配置页字段，也不是机械流程门禁。
+
+`creative_brief.level` 使用 `full|lite|unknown`：
+
+- `full`：从方向或完整 brief 开始，功能事实、目标用户、场景、产品动作和可感知变化都比较清楚。
+- `lite`：从文案、C-ID、临时文案、图片需求中途进入，只能保留锚点、目标用户、已知产品动作和缺失项。
+- `unknown`：只有旧图、模糊需求或外部素材，关键功能事实缺失。
+
+关键功能事实缺失且会影响方向、文案、图片 prompt、新卖点或换功能时，先查知识库；仍不清楚就追问。纯视觉微调、配置页保存、状态查询、压缩、打包、Base 写入等机械流程不因为 `creative_brief` 不完整而阻塞。
 
 ## 结构化与非结构化边界
 
