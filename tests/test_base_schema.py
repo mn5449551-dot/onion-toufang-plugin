@@ -36,7 +36,18 @@ class BaseSchemaTests(unittest.TestCase):
         self.assertIn('"请求ID"', text)
         self.assertIn('"方案ID"', text)
         self.assertIn('"关联文案"', text)
+        self.assertIn('"directions"', text)
+        self.assertIn('"洋葱私教班"', text)
+        self.assertIn("ensure_direction_function_options", text)
         self.assertIn("view-set-visible-fields", text)
+
+    def test_base_schema_ensure_script_has_private_tutor_function_option(self):
+        module = load_ensure_schema_module()
+        options = [item["name"] for item in module.DIRECTION_FUNCTION_FIELD["options"]]
+
+        self.assertIn("洋葱私教班", options)
+        self.assertIn("AI定制班", options)
+        self.assertLess(options.index("AI定制班"), options.index("洋葱私教班"))
 
     def test_base_schema_ensure_script_redacts_tokens_from_output(self):
         module = load_ensure_schema_module()
