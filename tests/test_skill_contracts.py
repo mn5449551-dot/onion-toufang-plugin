@@ -337,10 +337,27 @@ class SkillContractTests(unittest.TestCase):
         for text in (skill, channel, spec, fields, mistakes):
             self.assertIn("默认学生视角", text)
             self.assertIn("产品动作", text)
-        self.assertIn("场景问题 -> 惊艳解法 -> 场景奇效", spec)
+        self.assertIn("功能 × 用户", spec)
         self.assertIn("洋葱一拍", fields)
         self.assertIn("洋葱拍题精学", fields)
         self.assertIn("应用商店 / 学习机 · 单图", response)
+
+    def test_copy_three_image_relationship_library_is_not_single_template(self):
+        spec = (PLUGIN_ROOT / "skills" / "onion-copy" / "references" / "规格.md").read_text(encoding="utf-8")
+        fields = (PLUGIN_ROOT / "skills" / "onion-copy" / "references" / "字段定义-文案.md").read_text(encoding="utf-8")
+        channel = (PLUGIN_ROOT / "skills" / "onion-copy" / "references" / "渠道.md").read_text(encoding="utf-8")
+        skill = (PLUGIN_ROOT / "skills" / "onion-copy" / "SKILL.md").read_text(encoding="utf-8")
+
+        for text in (spec, fields, channel):
+            self.assertIn("三图关系库", text)
+            self.assertIn("痛点 → 解法 → 奇效", text)
+            self.assertIn("旧方式 → 新方式 → 反差结果", text)
+            self.assertIn("递进排比", text)
+            self.assertIn("问题 → 问题 → 统一解法", text)
+            self.assertIn("期末冲刺课表", text)
+            self.assertIn("不是让你更努力，而是帮你学得更准", text)
+
+        self.assertIn("不要把 `痛点 → 解法 → 奇效` 当成唯一默认结构", skill)
 
     def test_copy_learning_device_is_single_only_and_app_store_keeps_multi_image(self):
         skill = (PLUGIN_ROOT / "skills" / "onion-copy" / "SKILL.md").read_text(encoding="utf-8")
