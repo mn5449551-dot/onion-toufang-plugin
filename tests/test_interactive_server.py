@@ -84,6 +84,8 @@ class InteractiveServerTests(unittest.TestCase):
         self.assertIn("deliveryName", html)
         self.assertIn("命名预览", html)
         self.assertIn("将导出为", html)
+        self.assertIn("WINDOWS_RESERVED_NAMES", html)
+        self.assertIn("MAX_DELIVERY_NAME_LENGTH", html)
         self.assertIn("每条文案在每个版位生成几套", html)
         self.assertIn("预计图组数", html)
         self.assertIn("MAX_GROUP_COUNT", html)

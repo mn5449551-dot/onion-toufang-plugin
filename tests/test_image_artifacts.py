@@ -253,6 +253,54 @@ class ImageArtifactTests(unittest.TestCase):
                     ["方向-31-测试-信息流-趣头条-横版大图/方向-31-测试-信息流-趣头条-横版大图-1.jpg"],
                 )
 
+    def test_package_failure_does_not_leave_partial_zip_or_manifest(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "bad.png").write_text("not an image", encoding="utf-8")
+            (root / "image-config-result.json").write_text(
+                json.dumps(
+                    {
+                        "request_id": "req-test",
+                        "delivery_name": "方向31",
+                        "placements": [
+                            {
+                                "id": "slot1",
+                                "category": "信息流",
+                                "platform": "趣头条",
+                                "placement": "横版大图",
+                                "target_size": "1280x720",
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            result_path = root / "image-selection-result.json"
+            result_path.write_text(
+                json.dumps(
+                    {
+                        "request_id": "req-test",
+                        "accepted_schemes": [
+                            {"set_id": "set1", "thumb": ["bad.png"], "placement_id": "slot1"}
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                [sys.executable, str(PACKAGE_SCRIPT), "--selection-result", str(result_path)],
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse((root / "方向31.zip").exists())
+            self.assertFalse((root / "方向31-manifest.json").exists())
+
     def test_same_placement_name_with_different_size_adds_size_to_folder(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 import sys
 from typing import Any
+import zipfile
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PLUGIN_ROOT = SCRIPT_DIR.parents[2]
@@ -24,7 +25,7 @@ SHARED_SCRIPTS = PLUGIN_ROOT / "shared" / "scripts"
 if str(SHARED_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SHARED_SCRIPTS))
 
-from package_accepted_images import delivery_zip_path_for  # noqa: E402
+from package_accepted_images import delivery_zip_path_for, manifest_path_for  # noqa: E402
 from runtime_paths import request_output_dir  # noqa: E402
 from write_selection_feedback import feedback_records_from_selection, selection_feedback_errors
 
@@ -118,19 +119,75 @@ def delivery_name_ready(config: dict[str, Any] | None) -> bool:
 
 
 def package_candidates(request_id: str, output_dir: Path, config: dict[str, Any] | None = None) -> list[Path]:
+    if delivery_name_ready(config):
+        delivery_name = str((config or {}).get("delivery_name") or (config or {}).get("deliveryName")).strip()
+        return [delivery_zip_path_for(output_dir, delivery_name)]
     candidates = [
         output_dir / f"{request_id}-accepted-images.zip",
         output_dir / "accepted-images.zip",
     ]
-    if delivery_name_ready(config):
-        delivery_name = str((config or {}).get("delivery_name") or (config or {}).get("deliveryName")).strip()
-        candidates.insert(0, delivery_zip_path_for(output_dir, delivery_name))
     candidates.extend(sorted(output_dir.glob("*accepted*.zip")))
     return candidates
 
 
-def package_exists(request_id: str, output_dir: Path, config: dict[str, Any] | None = None) -> bool:
-    return any(path.is_file() for path in package_candidates(request_id, output_dir, config))
+def package_manifest_valid(path: Path, request_id: str, selection: dict[str, Any] | None = None) -> bool:
+    if not path.is_file():
+        return False
+    manifest_path = manifest_path_for(path)
+    if not manifest_path.is_file():
+        return False
+    try:
+        manifest = load_json(manifest_path)
+    except Exception:
+        return False
+    if not manifest:
+        return False
+    if str(manifest.get("request_id") or "") != request_id:
+        return False
+    try:
+        accepted_count = int(manifest.get("accepted_count") or 0)
+    except (TypeError, ValueError):
+        return False
+    if accepted_count <= 0:
+        return False
+    accepted = accepted_schemes(selection)
+    if selection is not None and accepted_count != len(accepted):
+        return False
+    manifest_zip = str(manifest.get("zip") or "").strip()
+    if manifest_zip and Path(manifest_zip).expanduser().resolve() != path.resolve():
+        return False
+    schemes = manifest.get("schemes")
+    if not isinstance(schemes, list) or not schemes:
+        return False
+    try:
+        with zipfile.ZipFile(path) as archive:
+            names = set(archive.namelist())
+    except (OSError, zipfile.BadZipFile):
+        return False
+    if not names:
+        return False
+    for scheme in schemes:
+        if not isinstance(scheme, dict):
+            return False
+        files = scheme.get("files")
+        if not isinstance(files, list) or not files:
+            return False
+        for item in files:
+            zip_path = item.get("zip_path") if isinstance(item, dict) else None
+            if not zip_path or str(zip_path) not in names:
+                return False
+    return True
+
+
+def valid_package_path(request_id: str, output_dir: Path, config: dict[str, Any] | None = None, selection: dict[str, Any] | None = None) -> Path | None:
+    for path in package_candidates(request_id, output_dir, config):
+        if package_manifest_valid(path, request_id, selection):
+            return path
+    return None
+
+
+def package_exists(request_id: str, output_dir: Path, config: dict[str, Any] | None = None, selection: dict[str, Any] | None = None) -> bool:
+    return valid_package_path(request_id, output_dir, config, selection) is not None
 
 
 def request_id_errors(request_id: str, artifacts: list[tuple[str, dict[str, Any] | None]]) -> list[str]:
@@ -191,10 +248,9 @@ def build_status(request_id: str, output_dir: Path) -> dict[str, Any]:
         "accepted_package": None,
     }
 
-    for candidate in package_candidates(request_id, output_dir, config):
-        if candidate.is_file():
-            artifacts["accepted_package"] = str(candidate.resolve())
-            break
+    package_path = valid_package_path(request_id, output_dir, config, selection)
+    if package_path:
+        artifacts["accepted_package"] = str(package_path.resolve())
 
     base = {
         "ok": True,
@@ -302,7 +358,7 @@ def build_status(request_id: str, output_dir: Path) -> dict[str, Any]:
             "next_action": "image-config-result.json 缺少方向名。请重新打开配置页填写“方向名”并保存，或维护时运行 package_accepted_images.py --delivery-name <方向名> 后再继续。",
         }
 
-    if not package_exists(request_id, output_dir, config):
+    if not package_exists(request_id, output_dir, config, selection):
         return {
             **base,
             "stage": "needs_package",

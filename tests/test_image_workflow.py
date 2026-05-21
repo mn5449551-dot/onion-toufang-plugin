@@ -35,6 +35,26 @@ def run_workflow(output_dir: Path, *extra: str, env: Optional[dict] = None, chec
     return json.loads(output)
 
 
+def write_valid_package(root: Path, name: str = "方向31") -> None:
+    package = root / f"{name}.zip"
+    import zipfile
+
+    with zipfile.ZipFile(package, "w") as archive:
+        archive.writestr("set1/img1.jpg", b"image")
+    (root / f"{name}-manifest.json").write_text(
+        json.dumps(
+            {
+                "request_id": "req-test",
+                "zip": str(package.resolve()),
+                "accepted_count": 1,
+                "schemes": [{"set_id": "set1", "files": [{"zip_path": "set1/img1.jpg"}]}],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+
 class ImageWorkflowTests(unittest.TestCase):
     def test_default_output_dir_uses_runtime_root_env(self):
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as home:
@@ -163,7 +183,7 @@ class ImageWorkflowTests(unittest.TestCase):
                 json.dumps({"request_id": "req-test", "accepted_schemes": [{"set_id": "set1"}]}),
                 encoding="utf-8",
             )
-            (root / "方向31.zip").write_bytes(b"zip")
+            write_valid_package(root)
 
             payload = run_workflow(root)
 
@@ -171,6 +191,48 @@ class ImageWorkflowTests(unittest.TestCase):
         self.assertTrue(payload["can_write_base"])
         self.assertTrue(payload["artifacts"]["accepted_package"].endswith("方向31.zip"))
         self.assertIn("write_image_group.py", payload["next_action"])
+
+    def test_delivery_name_requires_matching_manifest_not_just_zip(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "image-config-result.json").write_text(json.dumps(VALID_CONFIG), encoding="utf-8")
+            (root / "image-sets.json").write_text(
+                json.dumps({"request_id": "req-test", "sets": [{"set_id": "set1"}]}),
+                encoding="utf-8",
+            )
+            (root / "image-selection-result.json").write_text(
+                json.dumps({"request_id": "req-test", "accepted_schemes": [{"set_id": "set1"}]}),
+                encoding="utf-8",
+            )
+            (root / "方向31.zip").write_bytes(b"partial")
+
+            payload = run_workflow(root)
+
+        self.assertEqual(payload["stage"], "needs_package")
+        self.assertIsNone(payload["artifacts"]["accepted_package"])
+
+    def test_delivery_name_ignores_legacy_accepted_zip_candidates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "image-config-result.json").write_text(json.dumps(VALID_CONFIG), encoding="utf-8")
+            (root / "image-sets.json").write_text(
+                json.dumps({"request_id": "req-test", "sets": [{"set_id": "set1"}]}),
+                encoding="utf-8",
+            )
+            (root / "image-selection-result.json").write_text(
+                json.dumps({"request_id": "req-test", "accepted_schemes": [{"set_id": "set1"}]}),
+                encoding="utf-8",
+            )
+            (root / "req-test-accepted-images.zip").write_bytes(b"legacy")
+            (root / "req-test-accepted-images-manifest.json").write_text(
+                json.dumps({"request_id": "req-test", "accepted_count": 1, "schemes": [{"files": []}]}),
+                encoding="utf-8",
+            )
+
+            payload = run_workflow(root)
+
+        self.assertEqual(payload["stage"], "needs_package")
+        self.assertIsNone(payload["artifacts"]["accepted_package"])
 
     def test_write_result_marks_workflow_complete_and_blocks_duplicate_base_write(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -184,7 +246,7 @@ class ImageWorkflowTests(unittest.TestCase):
                 json.dumps({"request_id": "req-test", "accepted_schemes": [{"set_id": "set1"}]}),
                 encoding="utf-8",
             )
-            (root / "方向31.zip").write_bytes(b"zip")
+            write_valid_package(root)
             (root / "image-write-result.json").write_text(json.dumps({"ok": True, "record_id": "recImg"}), encoding="utf-8")
 
             payload = run_workflow(root)
@@ -205,7 +267,7 @@ class ImageWorkflowTests(unittest.TestCase):
                 json.dumps({"request_id": "req-test", "accepted_schemes": [{"set_id": "set1"}]}),
                 encoding="utf-8",
             )
-            (root / "方向31.zip").write_bytes(b"zip")
+            write_valid_package(root)
             (root / "image-write-result.json").write_text(
                 json.dumps(
                     {

@@ -337,6 +337,15 @@ def manifest_path_for(output: Path) -> Path:
     return output.with_name(f"{output.stem}-manifest.json")
 
 
+def cleanup_temp_artifacts(*paths: Path) -> None:
+    for path in paths:
+        try:
+            if path.exists():
+                path.unlink()
+        except OSError:
+            pass
+
+
 def resolve_config_path(selection_result: Path, explicit: Path | None = None) -> Path | None:
     if explicit:
         return explicit.expanduser().resolve()
@@ -475,54 +484,65 @@ def package_accepted_images(
         "schemes": [],
     }
 
-    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-        for packet in packets:
-            scheme = packet["scheme"]
-            set_id = packet["set_id"]
-            export = packet["export"]
-            info = packet["placement_info"]
-            archive_dir = folders[placement_identity(info)]
-            scheme_target_kb = int(export["target_kb"] or target_kb)
-            target_width = export["target_width"]
-            target_height = export["target_height"]
-            scheme_entry = {
-                "set_id": set_id,
-                "copy_id": scheme_copy_id(scheme),
-                "copy_record_id": scheme_copy_record_id(scheme),
-                "category": info["category"],
-                "platform": info["platform"],
-                "placement": info["placement"],
-                "slot_id": info["slot_id"],
-                "image_form": info["image_form"],
-                "target_size": info["target_size"],
-                "meta": scheme.get("meta") or {},
-                "source": scheme.get("source") or {},
-                "export": export,
-                "files": [],
-            }
-            for image_index, source in enumerate(packet["image_paths"], start=1):
-                if compress:
-                    packaged = compressed_path_for(source, cache_dir, set_id, scheme_target_kb, target_width, target_height)
-                    if not packaged.exists():
-                        compress_image(source, packaged, scheme_target_kb, target_width, target_height)
-                else:
-                    packaged = source
-                counters[archive_dir] += 1
-                suffix = ".jpg" if compress else (packaged.suffix.lower() or ".png")
-                file_name = f"{archive_dir}-{counters[archive_dir]}{suffix}"
-                arcname = f"{archive_dir}/{file_name}"
-                archive.write(packaged, arcname)
-                scheme_entry["files"].append(
-                    {
-                        "index": image_index,
-                        "delivery_index": counters[archive_dir],
-                        "source": str(source),
-                        "packaged": str(packaged),
-                        "zip_path": arcname,
-                    }
-                )
-            package_manifest["schemes"].append(scheme_entry)
-    manifest_path.write_text(json.dumps(package_manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    temp_output = output.with_suffix(output.suffix + ".tmp")
+    temp_manifest = manifest_path.with_suffix(manifest_path.suffix + ".tmp")
+    cleanup_temp_artifacts(temp_output, temp_manifest)
+
+    try:
+        with zipfile.ZipFile(temp_output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for packet in packets:
+                scheme = packet["scheme"]
+                set_id = packet["set_id"]
+                export = packet["export"]
+                info = packet["placement_info"]
+                archive_dir = folders[placement_identity(info)]
+                scheme_target_kb = int(export["target_kb"] or target_kb)
+                target_width = export["target_width"]
+                target_height = export["target_height"]
+                scheme_entry = {
+                    "set_id": set_id,
+                    "copy_id": scheme_copy_id(scheme),
+                    "copy_record_id": scheme_copy_record_id(scheme),
+                    "category": info["category"],
+                    "platform": info["platform"],
+                    "placement": info["placement"],
+                    "slot_id": info["slot_id"],
+                    "image_form": info["image_form"],
+                    "target_size": info["target_size"],
+                    "meta": scheme.get("meta") or {},
+                    "source": scheme.get("source") or {},
+                    "export": export,
+                    "files": [],
+                }
+                for image_index, source in enumerate(packet["image_paths"], start=1):
+                    if compress:
+                        packaged = compressed_path_for(source, cache_dir, set_id, scheme_target_kb, target_width, target_height)
+                        if not packaged.exists():
+                            compress_image(source, packaged, scheme_target_kb, target_width, target_height)
+                    else:
+                        packaged = source
+                    counters[archive_dir] += 1
+                    suffix = ".jpg" if compress else (packaged.suffix.lower() or ".png")
+                    file_name = f"{archive_dir}-{counters[archive_dir]}{suffix}"
+                    arcname = f"{archive_dir}/{file_name}"
+                    archive.write(packaged, arcname)
+                    scheme_entry["files"].append(
+                        {
+                            "index": image_index,
+                            "delivery_index": counters[archive_dir],
+                            "source": str(source),
+                            "packaged": str(packaged),
+                            "zip_path": arcname,
+                        }
+                    )
+                package_manifest["schemes"].append(scheme_entry)
+
+        temp_manifest.write_text(json.dumps(package_manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+        temp_output.replace(output)
+        temp_manifest.replace(manifest_path)
+    except Exception:
+        cleanup_temp_artifacts(temp_output, temp_manifest, output, manifest_path)
+        raise
 
     return {
         "ok": True,
