@@ -10,7 +10,7 @@ from typing import Optional
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW_SCRIPT = PLUGIN_ROOT / "skills" / "onion-image" / "scripts" / "image_workflow.py"
-VALID_CONFIG = {"request_id": "req-test", "placements": [{"id": "slot1", "render_size": "1280x720"}]}
+VALID_CONFIG = {"request_id": "req-test", "delivery_name": "方向31", "placements": [{"id": "slot1", "render_size": "1280x720"}]}
 
 
 def run_workflow(output_dir: Path, *extra: str, env: Optional[dict] = None, check: bool = True) -> dict:
@@ -129,6 +129,28 @@ class ImageWorkflowTests(unittest.TestCase):
         self.assertFalse(payload["can_write_base"])
         self.assertIn("package_accepted_images.py", payload["next_action"])
 
+    def test_accepted_selection_without_delivery_name_requires_name_before_package(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "image-config-result.json").write_text(
+                json.dumps({"request_id": "req-test", "placements": [{"id": "slot1", "render_size": "1280x720"}]}),
+                encoding="utf-8",
+            )
+            (root / "image-sets.json").write_text(
+                json.dumps({"request_id": "req-test", "sets": [{"set_id": "set1"}]}),
+                encoding="utf-8",
+            )
+            (root / "image-selection-result.json").write_text(
+                json.dumps({"request_id": "req-test", "accepted_schemes": [{"set_id": "set1", "thumb": ["set1.png"]}]}),
+                encoding="utf-8",
+            )
+
+            payload = run_workflow(root)
+
+        self.assertEqual(payload["stage"], "needs_delivery_name")
+        self.assertFalse(payload["can_package"])
+        self.assertIn("方向名", payload["next_action"])
+
     def test_packaged_selection_is_ready_for_base_write(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -141,13 +163,13 @@ class ImageWorkflowTests(unittest.TestCase):
                 json.dumps({"request_id": "req-test", "accepted_schemes": [{"set_id": "set1"}]}),
                 encoding="utf-8",
             )
-            (root / "req-test-accepted-images.zip").write_bytes(b"zip")
+            (root / "方向31.zip").write_bytes(b"zip")
 
             payload = run_workflow(root)
 
         self.assertEqual(payload["stage"], "ready_to_write_base")
         self.assertTrue(payload["can_write_base"])
-        self.assertTrue(payload["artifacts"]["accepted_package"].endswith("req-test-accepted-images.zip"))
+        self.assertTrue(payload["artifacts"]["accepted_package"].endswith("方向31.zip"))
         self.assertIn("write_image_group.py", payload["next_action"])
 
     def test_write_result_marks_workflow_complete_and_blocks_duplicate_base_write(self):
@@ -162,7 +184,7 @@ class ImageWorkflowTests(unittest.TestCase):
                 json.dumps({"request_id": "req-test", "accepted_schemes": [{"set_id": "set1"}]}),
                 encoding="utf-8",
             )
-            (root / "req-test-accepted-images.zip").write_bytes(b"zip")
+            (root / "方向31.zip").write_bytes(b"zip")
             (root / "image-write-result.json").write_text(json.dumps({"ok": True, "record_id": "recImg"}), encoding="utf-8")
 
             payload = run_workflow(root)
@@ -183,7 +205,7 @@ class ImageWorkflowTests(unittest.TestCase):
                 json.dumps({"request_id": "req-test", "accepted_schemes": [{"set_id": "set1"}]}),
                 encoding="utf-8",
             )
-            (root / "req-test-accepted-images.zip").write_bytes(b"zip")
+            (root / "方向31.zip").write_bytes(b"zip")
             (root / "image-write-result.json").write_text(
                 json.dumps(
                     {
@@ -214,6 +236,20 @@ class ImageWorkflowTests(unittest.TestCase):
         self.assertEqual(payload["stage"], "needs_api_key")
         self.assertFalse(payload["can_render"])
         self.assertIn("LAOZHANG_API_KEY", payload["next_action"])
+
+    def test_ready_to_render_points_to_batch_render_manifest(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "image-config-result.json").write_text(json.dumps(VALID_CONFIG), encoding="utf-8")
+            env = os.environ.copy()
+            env["LAOZHANG_API_KEY"] = "test-valid-key"
+
+            payload = run_workflow(root, env=env)
+
+        self.assertEqual(payload["stage"], "ready_to_render")
+        self.assertTrue(payload["can_render"])
+        self.assertIn("image-render-manifest.json", payload["next_action"])
+        self.assertIn("batch_render.py", payload["next_action"])
 
     def test_request_id_mismatch_blocks_stale_artifacts(self):
         with tempfile.TemporaryDirectory() as tmp:

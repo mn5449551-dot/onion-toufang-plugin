@@ -33,8 +33,8 @@ Base URL: https://guanghe.feishu.cn/base/WIoGb0ksnaREvJsPtQCcW8Lsnfg
 |---|---|---|---|
 | directions  | tblLWPSHrZT95oy7 | 素材方向（text）| 13 |
 | copies      | tblFdwXSbjANQjlh | 文案ID（auto_number C-XXX）| 14 |
-| image_groups| tblGpuukciptN3PP | 图组ID（auto_number G-XXX）| 25 |
-| feedbacks   | tblsPpNNcNH5KXoZ | 反馈ID（auto_number F-XXX）| 17 |
+| image_groups| tblGpuukciptN3PP | 图组ID（auto_number G-XXX）| 27 |
+| feedbacks   | tblsPpNNcNH5KXoZ | 反馈ID（auto_number F-XXX）| 18 |
 ```
 
 调 lark-cli 时优先用 `~/.onion-ad/.env` 里的 `ONION_BASE_APP_TOKEN` + 对应 `ONION_BASE_*_TID`。如果 env 缺失，再用本文件里的默认值兜底。
@@ -117,13 +117,15 @@ Base URL: https://guanghe.feishu.cn/base/WIoGb0ksnaREvJsPtQCcW8Lsnfg
 
 ---
 
-## 表 3：`image_groups`（图组 / 一行 = 一套图，25 字段）
+## 表 3：`image_groups`（图组 / 一行 = 一套图，27 字段）
 
 | 中文字段名 | 类型 | 必填 | 说明 |
 |---|---|---|---|
 | `图组ID` | auto_number（G-XXX）| 自动 | |
 | `关联方向` | link → directions | ❌ 选填 | 有可信方向 record_id 时写；临时图片/临时文案可空 |
-| `关联文案` | link → copies | ❌ 选填 | 有可信文案 record_id 时写；临时图片/临时文案可空 |
+| `关联文案` | link → copies | ❌ 选填 | 有可信文案 record_id 时写；批量新图生图前必须先形成 C-XXX 并写这里；直接旧图迭代可空 |
+| `请求ID` | text | ❌ | 本地批量请求 request_id，如 `img-20260519-xxx`；用于对齐选择页、zip、manifest |
+| `方案ID` | text | ❌ | 本地图片方案 set_id，如 `set12`；用于回查选择页标注结果 |
 | `渠道` | select 单 | ✅ | 信息流 / 应用商店 / 学习机 / 百度 |
 | `图片形式` | select 单 | ✅ | 单图 / 双图 / 三图 |
 | `版位` | text | ❌ | 写精确版位名，如 `OPPO 常规-富媒体 横版大图 1280x720`；不要做成固定选项，否则新渠道版位会卡写入 |
@@ -153,7 +155,7 @@ Base URL: https://guanghe.feishu.cn/base/WIoGb0ksnaREvJsPtQCcW8Lsnfg
 
 ---
 
-## 表 4：`feedbacks`（反馈收集池，17 字段）
+## 表 4：`feedbacks`（反馈收集池，18 字段）
 
 | 中文字段名 | 类型 | 必填 | 说明 |
 |---|---|---|---|
@@ -163,6 +165,7 @@ Base URL: https://guanghe.feishu.cn/base/WIoGb0ksnaREvJsPtQCcW8Lsnfg
 | `反馈类型` | select 单 | ✅ | 固定规则反馈 / 主观感受反馈 |
 | `反馈内容` | text | ✅ | 用户原话 |
 | `建议改法` | text | ❌ | |
+| `关联文案` | link → copies | ❌ | 图片选择页反馈对应的 C-XXX record_id；未采纳图没有 G-XXX 时也必须尽量写 |
 | `请求ID` | text | ❌ | 图片标注页对应 request_id，如 `img-20260519-xxx` |
 | `方案ID` | text | ❌ | 本地图片方案 set_id，如 `set2` |
 | `问题图位` | text | ❌ | 多个用 `、` 连接，如 `图1、图2` |
@@ -187,6 +190,13 @@ Base URL: https://guanghe.feishu.cn/base/WIoGb0ksnaREvJsPtQCcW8Lsnfg
 | 长字段名 | 包含双引号的字段名（如「1 能解决用户在"具体哪个场景里的哪个问题"」）调 JSON 时正确转义 |
 | `attachment` 字段 | 不能在 +record-batch-create 时直接传文件，要先建 record，再用 +record-upload-attachment 单独上传 |
 | 写入失败 3 次 | 整批操作写到 `~/.onion-ad/pending.jsonl`；只有用户明确要求重试，且确认不是 ambiguous 重复写入风险时，才运行 `retry_pending.py` |
+
+## 批量出图追溯规则
+
+- 多组原始文案先整理成 `copy_drafts`，不要立刻入库；配置页确定渠道和图片形式后，渲染前再写入 `copies` 取得 `C-XXX`。
+- 生图前必须有 `C-XXX`。每条文案、每个渠道、每个图片形式都对应独立 copy 记录；同一段文案跨渠道使用时创建多条 `C-XXX`。
+- `image_groups.请求ID` 和 `image_groups.方案ID` 对齐本地 `image-selection-result.json`、交付 zip 和 manifest。
+- 不采纳方案通常没有 `G-XXX`，`feedbacks.被反馈对象ID` 使用 `<request_id>/<set_id>`，同时写 `关联文案`、`请求ID`、`方案ID`、`渠道`、`版位`、`图片形式`。
 
 ## Base 初始化与共享方式
 

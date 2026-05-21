@@ -27,8 +27,9 @@ class SelectionFeedbackTests(unittest.TestCase):
             "rejected_schemes": [
                 {
                     "set_id": "set2",
-                    "meta": {"渠道": "信息流", "版位": "OPPO 信息流", "图片形式": "单图"},
-                    "annotation": {
+                        "meta": {"渠道": "信息流", "版位": "OPPO 信息流", "图片形式": "单图"},
+                        "source": {"copyId": "C-003", "copyRecordId": "recCopy003"},
+                        "annotation": {
                         "fixed_rule_feedback": "信息流不能出现学习机外壳。",
                         "subjective_feedback": "整体太像硬广，氛围不够自然。",
                         "problem_positions": ["图1", "图2"],
@@ -43,7 +44,8 @@ class SelectionFeedbackTests(unittest.TestCase):
         self.assertEqual(len(records), 2)
         fixed, subjective = records
         self.assertEqual(fixed["fields"]["反馈对象类型"], "图组")
-        self.assertEqual(fixed["fields"]["被反馈对象ID"], "req-feedback:set2")
+        self.assertEqual(fixed["fields"]["被反馈对象ID"], "req-feedback/set2")
+        self.assertEqual(fixed["fields"]["关联文案"], ["recCopy003"])
         self.assertEqual(fixed["fields"]["反馈类型"], "固定规则反馈")
         self.assertEqual(fixed["fields"]["反馈内容"], "信息流不能出现学习机外壳。")
         self.assertEqual(fixed["fields"]["请求ID"], "req-feedback")

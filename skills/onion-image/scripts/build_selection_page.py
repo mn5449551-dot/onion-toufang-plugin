@@ -58,16 +58,30 @@ def materialize_image_path(path_value: str, output_dir: Path) -> str:
 def normalize_meta(source: dict[str, Any]) -> dict[str, Any]:
     meta = dict(source.get("meta") or {})
     aliases = {
+        "category": "大类",
+        "platform": "渠道平台",
+        "placement_id": "版位ID",
+        "slot_id": "版位ID",
         "channel": "渠道",
         "form": "图片形式",
+        "image_form": "图片形式",
+        "imageForm": "图片形式",
         "ratio": "比例",
         "ip": "IP形象",
         "placement": "版位",
         "logo": "Logo",
         "cta": "CTA文字",
+        "target_size": "目标尺寸",
+        "target_width": "目标宽度",
+        "target_height": "目标高度",
+        "target_kb": "目标KB",
     }
     for normalized, raw in aliases.items():
-        if normalized not in meta and raw in source:
+        if normalized in meta:
+            continue
+        if normalized in source:
+            meta[normalized] = source[normalized]
+        elif raw in source:
             meta[normalized] = source[raw]
     return meta
 
@@ -78,8 +92,10 @@ def normalize_source(source: dict[str, Any]) -> dict[str, Any] | None:
 
     result = {
         "copyId": source.get("copy_id") or source.get("copyId") or source.get("文案ID"),
+        "copyRecordId": source.get("copy_record_id") or source.get("copyRecordId") or source.get("文案record_id") or source.get("文案记录ID"),
         "copySummary": source.get("copy_summary") or source.get("copySummary") or source.get("文案摘要"),
         "directionId": source.get("direction_id") or source.get("directionId") or source.get("方向ID"),
+        "directionRecordId": source.get("direction_record_id") or source.get("directionRecordId") or source.get("方向record_id") or source.get("方向记录ID"),
         "direction": source.get("direction") or source.get("方向摘要"),
     }
     return result if any(result.values()) else None

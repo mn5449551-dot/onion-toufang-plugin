@@ -80,6 +80,13 @@ class InteractiveServerTests(unittest.TestCase):
 
         self.assertIn("/api/image-config", html)
         self.assertIn("图片生成配置", html)
+        self.assertIn("方向名", html)
+        self.assertIn("deliveryName", html)
+        self.assertIn("命名预览", html)
+        self.assertIn("将导出为", html)
+        self.assertIn("每条文案在每个版位生成几套", html)
+        self.assertIn("预计图组数", html)
+        self.assertIn("MAX_GROUP_COUNT", html)
         self.assertIn("font_prompt_rule", html)
         self.assertIn("category-tabs", html)
         self.assertIn("selectedSlotIds", html)
@@ -163,7 +170,10 @@ class InteractiveServerTests(unittest.TestCase):
                     with request.urlopen(req, timeout=5) as response:
                         return json.loads(response.read().decode("utf-8"))
 
-                config_payload = post("/api/image-config", {"request_id": "req-test", "sets": 2, "placement_ids": [slot_id]})
+                config_payload = post(
+                    "/api/image-config",
+                    {"request_id": "req-test", "delivery_name": "方向31", "sets": 2, "placement_ids": [slot_id]},
+                )
                 selection_payload = post("/api/image-selection", {"request_id": "req-test", "schemes": []})
                 sets_payload = post(
                     "/api/image-sets",
@@ -188,6 +198,7 @@ class InteractiveServerTests(unittest.TestCase):
             config = json.loads((output_dir / "image-config-result.json").read_text(encoding="utf-8"))
             selection = json.loads((output_dir / "image-selection-result.json").read_text(encoding="utf-8"))
             image_sets = json.loads((output_dir / "image-sets.json").read_text(encoding="utf-8"))
+            self.assertEqual(config["delivery_name"], "方向31")
             self.assertEqual(config["sets"], 2)
             self.assertFalse(config["ui_reference_required"])
             self.assertFalse(config["screen_ui_reference_required"])
@@ -220,7 +231,21 @@ class InteractiveServerTests(unittest.TestCase):
         by_id = {slot["id"]: slot for slot in slots}
 
         with self.assertRaisesRegex(ValueError, "select at least one enabled placement"):
-            self.server.normalize_config_result({"request_id": "req-test", "sets": 2}, by_id)
+            self.server.normalize_config_result({"request_id": "req-test", "delivery_name": "方向31", "sets": 2}, by_id)
+
+    def test_config_result_requires_delivery_name(self):
+        slots = self.server.load_platform_slots()
+        by_id = {slot["id"]: slot for slot in slots}
+        slot_id = next(slot["id"] for slot in slots if slot.get("enabled"))
+
+        with self.assertRaisesRegex(ValueError, "请填写方向名"):
+            self.server.normalize_config_result({"request_id": "req-test", "sets": 2, "placement_ids": [slot_id]}, by_id)
+
+        result = self.server.normalize_config_result(
+            {"request_id": "req-test", "delivery_name": "方向31", "sets": 2, "placement_ids": [slot_id]},
+            by_id,
+        )
+        self.assertEqual(result["delivery_name"], "方向31")
 
     def test_config_result_rejects_invalid_set_count_instead_of_clamping(self):
         slots = self.server.load_platform_slots()
@@ -228,13 +253,99 @@ class InteractiveServerTests(unittest.TestCase):
         slot_id = next(slot["id"] for slot in slots if slot.get("enabled"))
 
         with self.assertRaisesRegex(ValueError, "sets must be between 1 and 50"):
-            self.server.normalize_config_result({"request_id": "req-test", "sets": 0, "placement_ids": [slot_id]}, by_id)
+            self.server.normalize_config_result({"request_id": "req-test", "delivery_name": "方向31", "sets": 0, "placement_ids": [slot_id]}, by_id)
 
         with self.assertRaisesRegex(ValueError, "sets must be between 1 and 50"):
-            self.server.normalize_config_result({"request_id": "req-test", "sets": 51, "placement_ids": [slot_id]}, by_id)
+            self.server.normalize_config_result({"request_id": "req-test", "delivery_name": "方向31", "sets": 51, "placement_ids": [slot_id]}, by_id)
 
         with self.assertRaisesRegex(ValueError, "sets must be an integer"):
-            self.server.normalize_config_result({"request_id": "req-test", "sets": "2.5", "placement_ids": [slot_id]}, by_id)
+            self.server.normalize_config_result({"request_id": "req-test", "delivery_name": "方向31", "sets": "2.5", "placement_ids": [slot_id]}, by_id)
+
+    def test_config_result_limits_total_batch_groups_to_100(self):
+        slots = self.server.load_platform_slots()
+        by_id = {slot["id"]: slot for slot in slots}
+        slot_ids = [slot["id"] for slot in slots if slot.get("enabled")][:2]
+
+        result = self.server.normalize_config_result(
+                {
+                    "request_id": "req-batch",
+                    "delivery_name": "方向31",
+                    "sets": 25,
+                "copy_count": 2,
+                "placement_ids": slot_ids,
+            },
+            by_id,
+        )
+
+        self.assertEqual(result["copy_count"], 2)
+        self.assertEqual(result["estimated_group_count"], 100)
+        self.assertEqual(result["max_group_count"], 100)
+
+        with self.assertRaisesRegex(ValueError, "batch group count exceeds 100"):
+            self.server.normalize_config_result(
+                {
+                    "request_id": "req-batch",
+                    "delivery_name": "方向31",
+                    "sets": 26,
+                    "copy_count": 2,
+                    "placement_ids": slot_ids,
+                },
+                by_id,
+            )
+
+    def test_config_payload_counts_raw_copy_drafts(self):
+        payload = self.server.build_config_payload(
+            "req-drafts",
+            context={
+                "copy_drafts": [
+                    {"主标题": "拍一下先看答案", "副标题": "哪步不懂问哪步"},
+                    {"主标题": "解析秒出", "副标题": "顺着步骤学到会"},
+                    {"主标题": "卡住别硬熬", "副标题": "问到会为止"},
+                ]
+            },
+        )
+
+        self.assertEqual(payload["copyCount"], 3)
+        self.assertEqual(payload["maxGroupCount"], 100)
+        self.assertEqual(len(payload["copyRefs"]), 3)
+        self.assertEqual(payload["copyRefs"][0]["mainTitle"], "拍一下先看答案")
+        self.assertEqual(payload["copyRefs"][0]["subtitle"], "哪步不懂问哪步")
+
+    def test_config_result_persists_copy_refs_for_batch_resume(self):
+        slots = self.server.load_platform_slots()
+        by_id = {slot["id"]: slot for slot in slots}
+        slot_id = next(slot["id"] for slot in slots if slot.get("enabled"))
+        copy_refs = [
+            {"copyId": "C-101", "copyRecordId": "recCopy101", "mainTitle": "拍一下先看答案", "subtitle": "哪步不会问哪步"},
+            {"copyDraftId": "draft-2", "short1": "拍题秒出解析", "short2": "不懂继续追问"},
+        ]
+
+        result = self.server.normalize_config_result(
+            {
+                "request_id": "req-batch",
+                "delivery_name": "方向31",
+                "sets": 2,
+                "copy_count": 2,
+                "copy_refs": copy_refs,
+                "placement_ids": [slot_id],
+            },
+            by_id,
+        )
+
+        self.assertEqual(result["copy_count"], 2)
+        self.assertEqual(result["copy_refs"], copy_refs)
+        self.assertEqual(result["copy_refs"][0]["copyRecordId"], "recCopy101")
+        self.assertEqual(result["estimated_group_count"], 4)
+
+    def test_config_payload_treats_copy_ids_as_copy_refs(self):
+        payload = self.server.build_config_payload(
+            "req-copy-ids",
+            context={"copy_ids": ["C-001", "C-002"]},
+        )
+
+        self.assertEqual(payload["copyCount"], 2)
+        self.assertEqual(payload["copyRefs"][0]["copyId"], "C-001")
+        self.assertEqual(payload["copyRefs"][1]["copyId"], "C-002")
 
     def test_ui_reference_required_is_persisted_as_blocking_codex_upload(self):
         slots = self.server.load_platform_slots()
@@ -243,6 +354,7 @@ class InteractiveServerTests(unittest.TestCase):
         result = self.server.normalize_config_result(
             {
                 "request_id": "req-test",
+                "delivery_name": "方向31",
                 "placement_ids": [slot_id],
                 "screen_ui_reference_required": True,
                 "ui_reference_upload_status": "awaiting_codex_upload",
@@ -275,6 +387,7 @@ class InteractiveServerTests(unittest.TestCase):
         result = self.server.normalize_config_result(
             {
                 "request_id": "req-iterate",
+                "delivery_name": "方向31",
                 "generation_mode": "iterate",
                 "iteration_mode": "expand_similar",
                 "base": {
@@ -388,7 +501,7 @@ class InteractiveServerTests(unittest.TestCase):
         by_id = {slot["id"]: slot for slot in slots}
 
         result = self.server.normalize_config_result(
-            {"request_id": "req-test", "placement_ids": ["netease-feed-slot-slot-1280x720"]},
+            {"request_id": "req-test", "delivery_name": "方向31", "placement_ids": ["netease-feed-slot-slot-1280x720"]},
             by_id,
         )
         self.assertEqual(result["channel"], "信息流")
@@ -396,7 +509,7 @@ class InteractiveServerTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "placement is disabled"):
             self.server.normalize_config_result(
-                {"request_id": "req-test", "placement_ids": ["oppo-rich-horizontal-big-1280x720"]},
+                {"request_id": "req-test", "delivery_name": "方向31", "placement_ids": ["oppo-rich-horizontal-big-1280x720"]},
                 by_id,
             )
 
@@ -406,6 +519,7 @@ class InteractiveServerTests(unittest.TestCase):
         result = self.server.normalize_config_result(
             {
                 "request_id": "req-test",
+                "delivery_name": "方向31",
                 "placement_ids": [
                     "oppo-rich-horizontal-big-1280x720",
                     "huawei-app-daily-featured-explore-cover",

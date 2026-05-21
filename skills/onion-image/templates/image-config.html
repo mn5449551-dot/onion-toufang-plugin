@@ -272,9 +272,18 @@
         <textarea id="perImageNotes" placeholder="双图/三图才需要，例如：图1保留钩子；图2换人物；图3改 CTA。"></textarea>
       </div>
       <div class="field">
+        <label for="deliveryName">方向名</label>
+        <input id="deliveryName" type="text" autocomplete="off" placeholder="例如：方向31">
+        <div class="hint">只填大的压缩包名称来源；系统会自动生成版位文件夹和图片名。输入“方向31.zip”也会按“方向31.zip”导出，不会重复追加后缀。</div>
+      </div>
+      <div class="field">
         <label for="sets">套数</label>
         <input id="sets" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
-        <div class="hint">手动输入，最多 50 套；大批量会分批生成和刷新。</div>
+        <div class="hint">每条文案在每个版位生成几套。手动输入，最多 50 套；整批最多 100 图组，超过请拆批。</div>
+      </div>
+      <div class="field">
+        <label>命名预览</label>
+        <div id="deliveryPreview" class="hint"></div>
       </div>
       <div class="field">
         <label>Logo</label>
@@ -319,11 +328,15 @@
   </div>
   <script>
     const DATA = __DATA_JSON__;
+    const MAX_GROUP_COUNT = DATA.maxGroupCount || 100;
+    const COPY_COUNT = DATA.copyCount || 1;
+    const COPY_REFS = Array.isArray(DATA.copyRefs) ? DATA.copyRefs : [];
     let submitInFlight = false;
     const state = {
       generationMode: DATA.generationMode || DATA.context?.generation_mode || "explore",
       category: DATA.desiredChannels?.[0] || DATA.categories?.[0] || DATA.slots[0]?.channel || "应用商店",
       selectedSlotIds: [],
+      deliveryName: DATA.deliveryName || DATA.context?.delivery_name || DATA.context?.方向名 || "",
       sets: 2,
       logoIndex: Math.min(1, Math.max(DATA.logoOptions.length - 1, 0)),
       ipIndex: 0,
@@ -346,6 +359,15 @@
     }
     function selectedLogo() { return DATA.logoOptions[Number(state.logoIndex)] || DATA.logoOptions[0]; }
     function selectedIp() { return DATA.ipOptions[Number(state.ipIndex)] || DATA.ipOptions[0]; }
+    function stripZipSuffix(value) { return String(value || "").trim().replace(/\.zip$/i, ""); }
+    function safeDeliveryComponent(value, fallback) {
+      const text = stripZipSuffix(value)
+        .replace(/[\\/:*?"<>|\r\n\t]+/g, "-")
+        .replace(/\s+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^[ ._-]+|[ ._-]+$/g, "");
+      return text || fallback;
+    }
 
     function renderCategories() {
       const tabs = document.getElementById("category-tabs");
@@ -394,6 +416,7 @@
       });
       renderThumbGrid("logo-grid", DATA.logoOptions, state.logoIndex, "selectLogo");
       renderThumbGrid("ip-grid", DATA.ipOptions, state.ipIndex, "selectIp");
+      document.getElementById("deliveryName").value = state.deliveryName;
       document.getElementById("sets").value = state.sets;
       document.getElementById("fontEnabled").checked = state.fontEnabled;
       document.getElementById("uiReferenceRequired").checked = state.uiReferenceRequired;
@@ -401,14 +424,43 @@
       document.getElementById("notes").value = state.notes;
       const allowsCta = selectedSlots().some(slot => slot.cta_policy === "optional" || slot.cta_policy === "required");
       document.getElementById("ctaField").classList.toggle("hidden", !allowsCta);
+      renderDeliveryPreview();
+    }
+
+    function renderDeliveryPreview() {
+      const preview = document.getElementById("deliveryPreview");
+      const delivery = safeDeliveryComponent(state.deliveryName, "方向名");
+      const slots = selectedSlots();
+      const setCount = Number.parseInt(state.sets || "0", 10) || 0;
+      if (!slots.length) {
+        preview.innerHTML = "将导出为：请先选择至少一个版位。";
+        return;
+      }
+      const samples = slots.slice(0, 3).map(slot => {
+        const folder = [
+          delivery,
+          safeDeliveryComponent(slot.category || slot.channel, "其他"),
+          safeDeliveryComponent(slot.platform, "通用"),
+          safeDeliveryComponent(slot.placement || slot.name, "默认版位")
+        ].join("-");
+        const count = Math.max(1, Math.min(setCount || 1, 2));
+        const files = Array.from({ length: count }, (_, index) => `${folder}/${folder}-${index + 1}.jpg`).join("<br>");
+        return files;
+      });
+      const extra = slots.length > 3 ? `<br>... 另有 ${slots.length - 3} 个版位按同一规则命名` : "";
+      preview.innerHTML = `将导出为：<br>${delivery}.zip<br>${samples.join("<br>")}${extra}`;
     }
 
     function renderSummary() {
       const slots = selectedSlots();
       const logo = selectedLogo();
       const ip = selectedIp();
+      const delivery = safeDeliveryComponent(state.deliveryName, "未填写");
+      const estimatedGroups = COPY_COUNT * slots.length * Number.parseInt(state.sets || "0", 10);
       const items = [
+        ["方向名", delivery],
         ["场景", state.category],
+        ["文案数", `${COPY_COUNT} 条`],
         ["版位", slots.length ? slots.map(slot => `${slot.platform} · ${slot.name}`).join("；") : "请先选择至少一个版位"],
         ["尺寸", slots.length ? slots.map(slot => `${slot.target_size} ← gpt ${slot.render_size}`).join("；") : "-"],
         ["压缩", slots.length ? slots.map(slot => slot.maxFileSizeKb ? `<${slot.maxFileSizeKb}KB` : "默认 200KB").join("；") : "-"],
@@ -418,6 +470,7 @@
         ["字体参考", state.fontEnabled ? "启用：每张随机抽取" : "不启用"],
         ["屏幕界面", state.uiReferenceRequired ? "需要：保存后回到 Codex 上传截图" : "不展示可识别 UI"],
         ["套数", `${state.sets} 套`],
+        ["预计图组数", slots.length ? `${COPY_COUNT} × ${slots.length} × ${state.sets || 0} = ${Number.isFinite(estimatedGroups) ? estimatedGroups : 0} / ${MAX_GROUP_COUNT}` : "-"],
       ];
       document.getElementById("summary").innerHTML = items.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("");
     }
@@ -467,7 +520,13 @@
       syncState();
       const slots = selectedSlots();
       if (!slots.length) throw new Error("请先选择至少一个版位");
+      const deliveryName = document.getElementById("deliveryName").value.trim();
+      if (!deliveryName) throw new Error("请填写方向名");
       const setCount = parseSets(document.getElementById("sets").value);
+      const estimatedGroups = COPY_COUNT * slots.length * setCount;
+      if (estimatedGroups > MAX_GROUP_COUNT) {
+        throw new Error(`预计图组数超过 ${MAX_GROUP_COUNT}：${COPY_COUNT} 条文案 × ${slots.length} 个版位 × ${setCount} 套 = ${estimatedGroups}，请减少文案、版位或套数后拆批。`);
+      }
       const slot = slots[0];
       const logo = selectedLogo();
       const ip = selectedIp();
@@ -477,6 +536,7 @@
       return {
         request_id: DATA.request_id,
         type: "image_config",
+        delivery_name: deliveryName,
         generation_mode: state.generationMode,
         iteration_mode: state.generationMode === "iterate" ? state.iterationMode : undefined,
         uploaded_image_role: state.generationMode === "iterate" ? state.uploadedImageRole : undefined,
@@ -500,6 +560,10 @@
         per_image_notes: state.generationMode === "iterate" && state.perImageNotes.trim() ? { notes: state.perImageNotes.trim() } : undefined,
         placement_ids: slots.map(slot => slot.id),
         placements: slots,
+        copy_count: COPY_COUNT,
+        copy_refs: COPY_REFS,
+        estimated_group_count: estimatedGroups,
+        max_group_count: MAX_GROUP_COUNT,
         category: selectedCategories[0] || state.category,
         categories: selectedCategories,
         channels: selectedChannels,
@@ -542,6 +606,7 @@
     }
 
     function syncState() {
+      state.deliveryName = document.getElementById("deliveryName").value;
       state.sets = normalizeSetsInput(document.getElementById("sets").value);
       document.getElementById("sets").value = state.sets;
       state.fontEnabled = document.getElementById("fontEnabled").checked;
@@ -590,7 +655,7 @@
       renderSlots();
       renderControls();
       renderSummary();
-      ["sets", "fontEnabled", "uiReferenceRequired", "iterationMode", "uploadedImageRole", "perImageNotes", "cta", "notes"].forEach(id => {
+      ["deliveryName", "sets", "fontEnabled", "uiReferenceRequired", "iterationMode", "uploadedImageRole", "perImageNotes", "cta", "notes"].forEach(id => {
         document.getElementById(id).oninput = syncState;
         document.getElementById(id).onchange = syncState;
       });

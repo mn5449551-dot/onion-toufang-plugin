@@ -125,7 +125,25 @@ def feedback_object_id(request_id: str, scheme: dict[str, Any], position: int) -
         if value:
             return value
     set_id = clean_text(scheme.get("set_id") or scheme.get("id") or f"set{position}")
-    return f"{request_id}:{set_id}"
+    return f"{request_id}/{set_id}"
+
+
+def copy_record_id_for(scheme: dict[str, Any]) -> str:
+    for key in ("copy_record_id", "copyRecordId", "文案记录ID", "文案record_id"):
+        value = clean_text(scheme.get(key))
+        if value:
+            return value
+    source = scheme.get("source") if isinstance(scheme.get("source"), dict) else {}
+    for key in ("copyRecordId", "copy_record_id", "文案记录ID", "文案record_id"):
+        value = clean_text(source.get(key))
+        if value:
+            return value
+    meta = scheme.get("meta") if isinstance(scheme.get("meta"), dict) else {}
+    for key in ("copyRecordId", "copy_record_id", "文案记录ID", "文案record_id"):
+        value = clean_text(meta.get(key))
+        if value:
+            return value
+    return ""
 
 
 def context_note(scheme: dict[str, Any], annotation: dict[str, Any], request_id: str, object_id: str) -> str:
@@ -169,6 +187,9 @@ def make_feedback_record(
         fields["请求ID"] = request_id
     if scheme_id:
         fields["方案ID"] = scheme_id
+    copy_record_id = copy_record_id_for(scheme)
+    if copy_record_id:
+        fields["关联文案"] = [copy_record_id]
     positions = annotation_positions(annotation)
     if positions:
         fields["问题图位"] = "、".join(positions)

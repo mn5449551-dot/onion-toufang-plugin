@@ -71,12 +71,29 @@ python3 skills/onion-help/scripts/setup_wizard.py check
 - `platform.family` 是否为 `mac`、`windows`、`linux` 或 `other`，后续命令按对应平台提示。
 - `runtime-adapters.md` 是否存在，避免 skill 依赖单一 Claude 运行时语法。
 - 共享 Base 的 4 张表和关键字段是否存在；缺失时读 `../../shared/references/base-setup.md`。
+- 批量出图字段是否存在：`image_groups.请求ID / 方案ID`，`feedbacks.关联文案 / 请求ID / 方案ID / 问题图位 / 渠道 / 版位 / 图片形式`，以及 `feedbacks.反馈类型` 是否包含 `固定规则反馈 / 主观感受反馈`。
 - `../../shared/scripts/*.py` 是否能编译。
 - `write_record.py`、`update_status.py` 是否能 dry-run。
 - `render.py --validate-only` 是否能通过基本参数校验。
 - `~/.onion-ad/pending.jsonl` 是否有未完成项、`retry_count >= 3` 项、`ambiguous: true` 项。
 
 如果存在 🔴 阻塞项，先输出修复命令或修复位置；除非用户明确要求，不继续跑昂贵或会写入外部系统的检查。
+
+### Base 结构补齐
+
+当维护人明确要求同步真实 Base schema 时，先 dry-run：
+
+```bash
+python3 skills/onion-help/scripts/ensure_base_schema.py
+```
+
+确认目标 Base 和缺失字段无误后再执行：
+
+```bash
+python3 skills/onion-help/scripts/ensure_base_schema.py --apply
+```
+
+这个脚本会补 `image_groups` 的 `请求ID / 方案ID`，补 `feedbacks` 的批量标注上下文字段，更新反馈类型选项，并把 `image_groups` / `feedbacks` 默认视图字段顺序调整为人先看的字段靠前、追溯和系统字段靠后。它不会新增 `copies.文案来源`，也不会把随机 IP、随机字体、套数等过程字段塞进 Base。
 
 ## Base 摘要输出
 

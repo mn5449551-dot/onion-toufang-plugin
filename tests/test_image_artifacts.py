@@ -33,15 +33,44 @@ class ImageArtifactTests(unittest.TestCase):
     def test_package_accepted_images_zips_only_accepted_schemes(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "set1_img1.png").write_bytes(b"accepted-1")
-            (root / "set2_img1.png").write_bytes(b"rejected-1")
+            Image.new("RGB", (200, 120), (80, 120, 240)).save(root / "set1_img1.png")
+            Image.new("RGB", (200, 120), (240, 80, 80)).save(root / "set2_img1.png")
+            (root / "image-config-result.json").write_text(
+                json.dumps(
+                    {
+                        "request_id": "req-test",
+                        "delivery_name": "方向31",
+                        "placements": [
+                            {
+                                "id": "huawei-big-card",
+                                "category": "应用商店",
+                                "platform": "华为",
+                                "placement": "大卡智投",
+                                "target_size": "1280x720",
+                                "target_width": 1280,
+                                "target_height": 720,
+                                "max_file_size_kb": 150,
+                                "image_form": "单图",
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
             result_path = root / "image-selection-result.json"
             result_path.write_text(
                 json.dumps(
                     {
                         "request_id": "req-test",
                         "accepted_schemes": [
-                            {"set_id": "set1", "thumb": ["set1_img1.png"], "meta": {"channel": "应用商店"}}
+                            {
+                                "set_id": "set1",
+                                "thumb": ["set1_img1.png"],
+                                "placement_id": "huawei-big-card",
+                                "meta": {"channel": "应用商店", "platform": "华为", "placement": "大卡智投"},
+                                "source": {"copyId": "C-003", "copyRecordId": "recCopy003"},
+                            }
                         ],
                         "rejected_schemes": [
                             {"set_id": "set2", "thumb": ["set2_img1.png"]}
@@ -52,7 +81,6 @@ class ImageArtifactTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            output = root / "accepted.zip"
 
             result = subprocess.run(
                 [
@@ -60,9 +88,8 @@ class ImageArtifactTests(unittest.TestCase):
                     str(PACKAGE_SCRIPT),
                     "--selection-result",
                     str(result_path),
-                    "--output",
-                    str(output),
-                    "--no-compress",
+                    "--target-kb",
+                    "150",
                 ],
                 text=True,
                 stdout=subprocess.PIPE,
@@ -73,22 +100,50 @@ class ImageArtifactTests(unittest.TestCase):
             payload = json.loads(result.stdout)
             self.assertTrue(payload["ok"])
             self.assertEqual(payload["accepted_count"], 1)
+            output = root / "方向31.zip"
             self.assertEqual(payload["zip"], str(output.resolve()))
-            self.assertEqual(payload["manifest_path"], str((root / "accepted-manifest.json").resolve()))
+            self.assertEqual(payload["manifest_path"], str((root / "方向31-manifest.json").resolve()))
+            self.assertEqual(payload["manifest"]["delivery_name"], "方向31")
             with zipfile.ZipFile(output) as archive:
                 names = archive.namelist()
-                self.assertIn("set01_set1/set01_img01.png", names)
+                self.assertIn("方向31-应用商店-华为-大卡智投/方向31-应用商店-华为-大卡智投-1.jpg", names)
                 self.assertNotIn("manifest.json", names)
                 self.assertNotIn("set2/img1.png", names)
-            manifest = json.loads((root / "accepted-manifest.json").read_text(encoding="utf-8"))
+            manifest = json.loads((root / "方向31-manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["delivery_name"], "方向31")
+            self.assertEqual(manifest["delivery_name_safe"], "方向31")
             self.assertEqual(manifest["schemes"][0]["set_id"], "set1")
-            self.assertEqual(manifest["schemes"][0]["files"][0]["zip_path"], "set01_set1/set01_img01.png")
+            self.assertEqual(manifest["schemes"][0]["copy_id"], "C-003")
+            self.assertEqual(manifest["schemes"][0]["copy_record_id"], "recCopy003")
+            self.assertEqual(manifest["schemes"][0]["files"][0]["zip_path"], "方向31-应用商店-华为-大卡智投/方向31-应用商店-华为-大卡智投-1.jpg")
 
     def test_package_accepted_images_uses_standard_archive_names_with_size(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             source = root / "source.png"
             Image.new("RGB", (200, 100), (80, 120, 240)).save(source)
+            (root / "image-config-result.json").write_text(
+                json.dumps(
+                    {
+                        "request_id": "req-test",
+                        "delivery_name": "方向31",
+                        "placements": [
+                            {
+                                "id": "huawei-big-card",
+                                "category": "应用商店",
+                                "platform": "华为",
+                                "placement": "大卡智投",
+                                "target_size": "120x80",
+                                "target_width": 120,
+                                "target_height": 80,
+                                "max_file_size_kb": 100,
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
             result_path = root / "image-selection-result.json"
             result_path.write_text(
                 json.dumps(
@@ -96,11 +151,14 @@ class ImageArtifactTests(unittest.TestCase):
                         "request_id": "req-test",
                         "accepted_schemes": [
                             {
-                                "set_id": "Set 1 / 应用商店",
+                                "set_id": "Set 1",
                                 "thumb": ["source.png"],
+                                "placement_id": "huawei-big-card",
                                 "target_width": 120,
                                 "target_height": 80,
                                 "target_kb": 100,
+                                "meta": {"category": "应用商店", "platform": "华为", "placement": "大卡智投"},
+                                "source": {"copyId": "C-101"},
                             }
                         ],
                     },
@@ -131,7 +189,120 @@ class ImageArtifactTests(unittest.TestCase):
             self.assertTrue(payload["ok"])
             with zipfile.ZipFile(output) as archive:
                 names = archive.namelist()
-            self.assertEqual(names, ["set01_set-1/set01_img01_120x80_100kb.jpg"])
+            self.assertEqual(names, ["方向31-应用商店-华为-大卡智投/方向31-应用商店-华为-大卡智投-1.jpg"])
+
+    def test_delivery_name_strips_zip_suffix_and_cleans_unsafe_characters(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            Image.new("RGB", (60, 60), (80, 120, 240)).save(root / "source.png")
+            (root / "image-config-result.json").write_text(
+                json.dumps(
+                    {
+                        "request_id": "req-test",
+                        "delivery_name": "方向/31:测试.zip",
+                        "placements": [
+                            {
+                                "id": "slot1",
+                                "category": "信息流",
+                                "platform": "趣头条",
+                                "placement": "横版大图",
+                                "target_size": "1280x720",
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            result_path = root / "image-selection-result.json"
+            result_path.write_text(
+                json.dumps(
+                    {
+                        "request_id": "req-test",
+                        "accepted_schemes": [
+                            {
+                                "set_id": "set1",
+                                "thumb": ["source.png"],
+                                "placement_id": "slot1",
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(PACKAGE_SCRIPT),
+                    "--selection-result",
+                    str(result_path),
+                ],
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True,
+            )
+
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload["zip"], str((root / "方向-31-测试.zip").resolve()))
+            with zipfile.ZipFile(root / "方向-31-测试.zip") as archive:
+                self.assertEqual(
+                    archive.namelist(),
+                    ["方向-31-测试-信息流-趣头条-横版大图/方向-31-测试-信息流-趣头条-横版大图-1.jpg"],
+                )
+
+    def test_same_placement_name_with_different_size_adds_size_to_folder(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            Image.new("RGB", (80, 80), (80, 120, 240)).save(root / "a.png")
+            Image.new("RGB", (80, 80), (240, 120, 80)).save(root / "b.png")
+            (root / "image-config-result.json").write_text(
+                json.dumps(
+                    {
+                        "request_id": "req-test",
+                        "delivery_name": "方向31",
+                        "placements": [
+                            {"id": "slot-a", "category": "应用商店", "platform": "华为", "placement": "大卡智投", "target_size": "1280x720"},
+                            {"id": "slot-b", "category": "应用商店", "platform": "华为", "placement": "大卡智投", "target_size": "640x360"},
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            result_path = root / "image-selection-result.json"
+            result_path.write_text(
+                json.dumps(
+                    {
+                        "request_id": "req-test",
+                        "accepted_schemes": [
+                            {"set_id": "set1", "thumb": ["a.png"], "placement_id": "slot-a"},
+                            {"set_id": "set2", "thumb": ["b.png"], "placement_id": "slot-b"},
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            subprocess.run(
+                [sys.executable, str(PACKAGE_SCRIPT), "--selection-result", str(result_path)],
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True,
+            )
+
+            with zipfile.ZipFile(root / "方向31.zip") as archive:
+                self.assertEqual(
+                    archive.namelist(),
+                    [
+                        "方向31-应用商店-华为-大卡智投-1280x720/方向31-应用商店-华为-大卡智投-1280x720-1.jpg",
+                        "方向31-应用商店-华为-大卡智投-640x360/方向31-应用商店-华为-大卡智投-640x360-1.jpg",
+                    ],
+                )
 
     def test_cleanup_image_outputs_deletes_only_old_original_pngs(self):
         with tempfile.TemporaryDirectory() as tmp:

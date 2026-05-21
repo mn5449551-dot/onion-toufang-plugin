@@ -18,10 +18,13 @@ from typing import Any
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PLUGIN_ROOT = SCRIPT_DIR.parents[2]
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
 SHARED_SCRIPTS = PLUGIN_ROOT / "shared" / "scripts"
 if str(SHARED_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SHARED_SCRIPTS))
 
+from package_accepted_images import delivery_zip_path_for  # noqa: E402
 from runtime_paths import request_output_dir  # noqa: E402
 from write_selection_feedback import feedback_records_from_selection, selection_feedback_errors
 
@@ -108,12 +111,26 @@ def ui_reference_satisfied(config: dict[str, Any] | None, output_dir: Path) -> b
     return False
 
 
-def package_exists(request_id: str, output_dir: Path) -> bool:
+def delivery_name_ready(config: dict[str, Any] | None) -> bool:
+    if not config:
+        return False
+    return bool(str(config.get("delivery_name") or config.get("deliveryName") or "").strip())
+
+
+def package_candidates(request_id: str, output_dir: Path, config: dict[str, Any] | None = None) -> list[Path]:
     candidates = [
         output_dir / f"{request_id}-accepted-images.zip",
         output_dir / "accepted-images.zip",
     ]
-    return any(path.is_file() for path in candidates) or any(output_dir.glob("*accepted*.zip"))
+    if delivery_name_ready(config):
+        delivery_name = str((config or {}).get("delivery_name") or (config or {}).get("deliveryName")).strip()
+        candidates.insert(0, delivery_zip_path_for(output_dir, delivery_name))
+    candidates.extend(sorted(output_dir.glob("*accepted*.zip")))
+    return candidates
+
+
+def package_exists(request_id: str, output_dir: Path, config: dict[str, Any] | None = None) -> bool:
+    return any(path.is_file() for path in package_candidates(request_id, output_dir, config))
 
 
 def request_id_errors(request_id: str, artifacts: list[tuple[str, dict[str, Any] | None]]) -> list[str]:
@@ -174,7 +191,7 @@ def build_status(request_id: str, output_dir: Path) -> dict[str, Any]:
         "accepted_package": None,
     }
 
-    for candidate in [output_dir / f"{request_id}-accepted-images.zip", output_dir / "accepted-images.zip", *output_dir.glob("*accepted*.zip")]:
+    for candidate in package_candidates(request_id, output_dir, config):
         if candidate.is_file():
             artifacts["accepted_package"] = str(candidate.resolve())
             break
@@ -240,7 +257,7 @@ def build_status(request_id: str, output_dir: Path) -> dict[str, Any]:
             "stage": "ready_to_render",
             "can_prompt": True,
             "can_render": True,
-            "next_action": "生成 prompt，先运行 render.py --validate-only，再按配置里的 render_size 渲染，并把结果 POST 到 /api/image-sets。",
+            "next_action": "生成 prompt，先按 image-config-result.json 组织 image-render-manifest.json，逐 job 运行 render.py --validate-only，再调用 batch_render.py 并发渲染；完成后把完整 set POST 到 /api/image-sets。",
         }
 
     if not selection:
@@ -277,7 +294,15 @@ def build_status(request_id: str, output_dir: Path) -> dict[str, Any]:
             "next_action": "选择结果里没有 accepted_schemes，不能打包或写 Base；请用户在选择页至少采纳一套，或明确全部废弃。",
         }
 
-    if not package_exists(request_id, output_dir):
+    if not delivery_name_ready(config):
+        return {
+            **base,
+            "stage": "needs_delivery_name",
+            "can_prompt": True,
+            "next_action": "image-config-result.json 缺少方向名。请重新打开配置页填写“方向名”并保存，或维护时运行 package_accepted_images.py --delivery-name <方向名> 后再继续。",
+        }
+
+    if not package_exists(request_id, output_dir, config):
         return {
             **base,
             "stage": "needs_package",

@@ -37,6 +37,7 @@ from build_selection_page import normalize_sets  # noqa: E402
 from runtime_paths import request_output_dir  # noqa: E402
 
 IMAGE_SETS_FILE = "image-sets.json"
+MAX_BATCH_GROUP_COUNT = 100
 
 
 FALLBACK_SLOTS = [
@@ -542,6 +543,128 @@ def load_font_options(font_dir: Path = FONT_DIR) -> list[dict[str, str]]:
     ]
 
 
+def count_context_items(value: Any) -> int:
+    if value is None:
+        return 0
+    if isinstance(value, list):
+        return len([item for item in value if item])
+    if isinstance(value, dict):
+        if value:
+            return 1
+        return 0
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return 0
+        if "," in text or "，" in text:
+            return len([item for item in re_split_commas(text) if item])
+        return 1
+    return 1
+
+
+def re_split_commas(text: str) -> list[str]:
+    return [item.strip() for item in text.replace("，", ",").split(",") if item.strip()]
+
+
+def first_text(container: dict[str, Any], *keys: str) -> str:
+    for key in keys:
+        value = str(container.get(key) or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def normalize_copy_ref(value: Any, index: int) -> dict[str, Any]:
+    if isinstance(value, dict):
+        result = {
+            "copyId": first_text(value, "copyId", "copy_id", "文案ID", "C-ID"),
+            "copyRecordId": first_text(value, "copyRecordId", "copy_record_id", "文案记录ID", "文案record_id"),
+            "copyDraftId": first_text(value, "copyDraftId", "copy_draft_id", "draft_id") or f"draft-{index}",
+            "mainTitle": first_text(value, "mainTitle", "main_title", "主标题", "标题"),
+            "subtitle": first_text(value, "subtitle", "subTitle", "副标题"),
+            "short1": first_text(value, "short1", "short_1", "短句1"),
+            "short2": first_text(value, "short2", "short_2", "短句2"),
+            "short3": first_text(value, "short3", "short_3", "短句3"),
+            "copyText": first_text(value, "copyText", "copy_text", "text", "文案", "content"),
+            "imageForm": first_text(value, "imageForm", "image_form", "图片形式"),
+            "channel": first_text(value, "channel", "渠道"),
+        }
+        return {key: item for key, item in result.items() if item}
+    text = str(value or "").strip()
+    return {"copyDraftId": f"draft-{index}", "copyText": text} if text else {}
+
+
+def normalize_copy_id_ref(value: Any, index: int) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return normalize_copy_ref(value, index)
+    text = str(value or "").strip()
+    return {"copyId": text, "copyDraftId": f"draft-{index}"} if text else {}
+
+
+def extract_copy_refs(context: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    context = context or {}
+    fields = flatten_context(context)
+    for key in ("copy_refs", "copyRefs"):
+        value = fields.get(key)
+        if isinstance(value, list):
+            return [ref for index, item in enumerate(value, start=1) if (ref := normalize_copy_ref(item, index))]
+
+    for key in ("copy_ids", "copyIds"):
+        value = fields.get(key)
+        if isinstance(value, list):
+            return [ref for index, item in enumerate(value, start=1) if (ref := normalize_copy_id_ref(item, index))]
+        if isinstance(value, str) and value.strip():
+            items = re_split_commas(value) if "," in value or "，" in value else [value]
+            return [ref for index, item in enumerate(items, start=1) if (ref := normalize_copy_id_ref(item, index))]
+
+    for key in ("copy_drafts", "copyDrafts", "copies", "文案列表"):
+        value = fields.get(key)
+        if isinstance(value, list):
+            return [ref for index, item in enumerate(value, start=1) if (ref := normalize_copy_ref(item, index))]
+        if isinstance(value, str) and value.strip():
+            items = re_split_commas(value) if "," in value or "，" in value else [value]
+            return [ref for index, item in enumerate(items, start=1) if (ref := normalize_copy_ref(item, index))]
+
+    single = normalize_copy_ref(fields, 1)
+    return [single] if single and any(key in single for key in ("copyId", "copyRecordId", "mainTitle", "subtitle", "short1", "copyText")) else []
+
+
+def infer_copy_count(context: dict[str, Any] | None = None) -> int:
+    context = context or {}
+    fields = flatten_context(context)
+    for key in (
+        "copy_count",
+        "copyCount",
+        "文案数量",
+        "copies_count",
+    ):
+        value = fields.get(key)
+        if value is None:
+            continue
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            continue
+        if parsed > 0:
+            return parsed
+    for key in (
+        "copy_drafts",
+        "copyDrafts",
+        "copies",
+        "copy_ids",
+        "copyIds",
+        "copy_record_ids",
+        "copyRecordIds",
+        "文案列表",
+    ):
+        count = count_context_items(fields.get(key))
+        if count:
+            return count
+    if any(non_empty_text(fields.get(key)) for key in ("copy_id", "copyId", "文案ID", "C-ID", "主标题", "副标题", "短句1")):
+        return 1
+    return 1
+
+
 def build_config_payload(
     request_id: str,
     context: dict[str, Any] | None = None,
@@ -553,6 +676,8 @@ def build_config_payload(
         generation_mode = "explore"
     desired_form = normalize_desired_image_form(context)
     desired_channels = normalize_desired_channels(context)
+    copy_refs = extract_copy_refs(context)
+    copy_count = max(infer_copy_count(context), len(copy_refs) or 1)
     slots = constrained_slots_for_context(context, platform_rules)
     categories = []
     for slot in slots:
@@ -562,10 +687,14 @@ def build_config_payload(
     return {
         "request_id": request_id,
         "context": context,
+        "deliveryName": extract_delivery_name(context),
         "generationMode": generation_mode,
         "slots": slots,
         "desiredImageForm": desired_form,
         "desiredChannels": desired_channels,
+        "copyCount": copy_count,
+        "copyRefs": copy_refs,
+        "maxGroupCount": MAX_BATCH_GROUP_COUNT,
         "ipOptions": load_ip_options(),
         "fontOptions": load_font_options(),
         "logoOptions": load_logo_options(),
@@ -632,6 +761,40 @@ def parse_set_count(value: Any) -> int:
     return count
 
 
+def parse_positive_int(value: Any, default: int = 1) -> int:
+    if value is None or str(value).strip() == "":
+        return default
+    text = str(value).strip()
+    if not text.isdigit():
+        raise ValueError("copy_count must be a positive integer")
+    parsed = int(text)
+    if parsed < 1:
+        raise ValueError("copy_count must be a positive integer")
+    return parsed
+
+
+def extract_delivery_name(context: dict[str, Any] | None = None) -> str:
+    fields = flatten_context(context or {})
+    for key in ("delivery_name", "deliveryName", "direction_name", "directionName", "方向名", "package_name", "包名"):
+        value = str(fields.get(key) or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def normalize_delivery_name(body: dict[str, Any]) -> str:
+    value = str(
+        body.get("delivery_name")
+        or body.get("deliveryName")
+        or body.get("direction_name")
+        or body.get("directionName")
+        or ""
+    ).strip()
+    if not value:
+        raise ValueError("请填写方向名")
+    return value
+
+
 def normalize_config_result(body: dict[str, Any], slot_map: dict[str, dict[str, Any]]) -> dict[str, Any]:
     placement_ids = body.get("placement_ids") or body.get("selectedSlotIds") or []
     if not placement_ids and body.get("slot_id"):
@@ -652,6 +815,7 @@ def normalize_config_result(body: dict[str, Any], slot_map: dict[str, dict[str, 
         raise ValueError("select at least one enabled placement")
 
     result = dict(body)
+    result["delivery_name"] = normalize_delivery_name(body)
     generation_mode = str(body.get("generation_mode") or body.get("generationMode") or "explore")
     if generation_mode not in {"explore", "iterate"}:
         generation_mode = "explore"
@@ -678,6 +842,18 @@ def normalize_config_result(body: dict[str, Any], slot_map: dict[str, dict[str, 
     result["render_size"] = first["render_size"]
     result["target_kb"] = first["max_file_size_kb"] or 200
     result["sets"] = parse_set_count(body.get("sets"))
+    result["copy_count"] = parse_positive_int(body.get("copy_count") or body.get("copyCount"), 1)
+    copy_refs = body.get("copy_refs") if isinstance(body.get("copy_refs"), list) else body.get("copyRefs")
+    result["copy_refs"] = copy_refs if isinstance(copy_refs, list) else []
+    if result["copy_refs"]:
+        result["copy_count"] = max(result["copy_count"], len(result["copy_refs"]))
+    result["max_group_count"] = MAX_BATCH_GROUP_COUNT
+    result["estimated_group_count"] = result["copy_count"] * len(placements) * result["sets"]
+    if result["estimated_group_count"] > MAX_BATCH_GROUP_COUNT:
+        raise ValueError(
+            f"batch group count exceeds {MAX_BATCH_GROUP_COUNT}: "
+            f"{result['copy_count']} copies × {len(placements)} placements × {result['sets']} sets = {result['estimated_group_count']}"
+        )
     result["ip_random"] = bool(body.get("ip_random") or body.get("ip") == "随机")
     result["font_reference_randomized"] = bool(body.get("font_reference_enabled", body.get("fontEnabled", True)))
     if generation_mode == "iterate":
