@@ -438,6 +438,25 @@ class InteractiveServerTests(unittest.TestCase):
         self.assertTrue(by_id["oppo-app-slot-slot-320x210"]["enabled"])
         self.assertEqual(by_id["oppo-app-slot-slot-320x210"]["imageForm"], "三图")
 
+    def test_learning_device_slots_are_all_single_image(self):
+        slots = self.server.load_platform_slots()
+        learning_slots = [slot for slot in slots if slot["category"] == "学习机"]
+
+        self.assertGreater(len(learning_slots), 0)
+        self.assertTrue(
+            all(slot["imageForm"] == "单图" and slot["image_count"] == 1 for slot in learning_slots),
+            [slot["id"] for slot in learning_slots if slot["imageForm"] != "单图" or slot["image_count"] != 1],
+        )
+
+    def test_fallback_learning_device_slots_are_single_only(self):
+        learning_slots = [slot for slot in self.server.FALLBACK_SLOTS if slot["channel"] == "学习机"]
+
+        self.assertGreater(len(learning_slots), 0)
+        self.assertTrue(
+            all(slot["imageForm"] == "单图" for slot in learning_slots),
+            [slot["id"] for slot in learning_slots if slot["imageForm"] != "单图"],
+        )
+
     def test_context_image_form_temporarily_disables_mismatched_slots(self):
         single_payload = self.server.build_config_payload("req-test", context={"image_form": "单图"})
         single_by_id = {slot["id"]: slot for slot in single_payload["slots"]}

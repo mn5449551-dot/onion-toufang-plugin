@@ -225,14 +225,23 @@ class SkillContractTests(unittest.TestCase):
         text = (PLUGIN_ROOT / "shared" / "references" / "response-format.md").read_text(encoding="utf-8")
 
         self.assertIn("方向候选固定排版", text)
-        self.assertIn("1 能解决用户在“具体哪个场景里的哪个问题”", text)
-        self.assertIn("2 能带来什么不一样的“一听很惊艳”的解法？", text)
-        self.assertIn("3 因此带来了哪个场景下的什么“奇效”？", text)
+        self.assertIn("一张 Markdown 表格", text)
+        self.assertIn("| 编号 | 素材方向 | 功能 | 卖点 | 目标人群 | 适配阶段 | 具体场景问题 | 惊艳解法 | 场景奇效 |", text)
+        self.assertIn("9 列都必须出现", text)
+        self.assertIn("表格后只补一句操作提示", text)
         self.assertIn("不能写省略号", text)
         self.assertIn("不能写“同上”", text)
         self.assertIn("文案候选固定排版", text)
-        self.assertIn("主标题：", text)
-        self.assertIn("短句3：", text)
+        self.assertIn("生成范围表", text)
+        self.assertIn("只列本次请求涉及的合法组合", text)
+        self.assertIn("| 渠道/形式 | 单图 | 双图 | 三图 |", text)
+        self.assertIn("应用商店 / 学习机 · 单图", text)
+        self.assertIn("编号全局唯一", text)
+        self.assertIn("展示是 12 条", text)
+        self.assertIn("Base 写 14 条", text)
+        self.assertIn("拆成 2 条 records", text)
+        self.assertIn("| 编号 | 主标题 | 副标题 |", text)
+        self.assertIn("| 编号 | 短句1 | 短句2 | 短句3 |", text)
         self.assertNotIn("推荐用图", text)
         copy_section = text.split("## 文案候选固定排版", 1)[1]
         self.assertNotIn("角度：", copy_section)
@@ -260,6 +269,86 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("洋葱一拍，解析秒出", fields)
         self.assertIn("看不懂，再问洋葱 AI", fields)
         self.assertIn("主语自检", mistakes)
+
+    def test_copy_defaults_to_student_view_and_product_action(self):
+        skill = (PLUGIN_ROOT / "skills" / "onion-copy" / "SKILL.md").read_text(encoding="utf-8")
+        channel = (PLUGIN_ROOT / "skills" / "onion-copy" / "references" / "渠道.md").read_text(encoding="utf-8")
+        spec = (PLUGIN_ROOT / "skills" / "onion-copy" / "references" / "规格.md").read_text(encoding="utf-8")
+        fields = (PLUGIN_ROOT / "skills" / "onion-copy" / "references" / "字段定义-文案.md").read_text(encoding="utf-8")
+        mistakes = (PLUGIN_ROOT / "skills" / "onion-copy" / "references" / "常见误区.md").read_text(encoding="utf-8")
+        response = (PLUGIN_ROOT / "shared" / "references" / "response-format.md").read_text(encoding="utf-8")
+
+        for text in (skill, channel, spec, fields, mistakes):
+            self.assertIn("默认学生视角", text)
+            self.assertIn("产品动作", text)
+        self.assertIn("场景问题 -> 惊艳解法 -> 场景奇效", spec)
+        self.assertIn("洋葱一拍", fields)
+        self.assertIn("洋葱拍题精学", fields)
+        self.assertIn("应用商店 / 学习机 · 单图", response)
+
+    def test_copy_learning_device_is_single_only_and_app_store_keeps_multi_image(self):
+        skill = (PLUGIN_ROOT / "skills" / "onion-copy" / "SKILL.md").read_text(encoding="utf-8")
+        channel = (PLUGIN_ROOT / "skills" / "onion-copy" / "references" / "渠道.md").read_text(encoding="utf-8")
+        fields = (PLUGIN_ROOT / "skills" / "onion-copy" / "references" / "字段定义-文案.md").read_text(encoding="utf-8")
+
+        for text in (skill, channel, fields):
+            self.assertIn("学习机只支持单图", text)
+            self.assertNotIn("学习机双图", text)
+            self.assertNotIn("学习机三图", text)
+            self.assertNotIn("应用商店/学习机双图", text)
+            self.assertNotIn("应用商店/学习机三图", text)
+            self.assertNotIn("学习机用学生视角", text)
+            self.assertNotIn("学习机默认学生本人视角", text)
+        self.assertIn("应用商店双图", channel)
+        self.assertIn("应用商店三图", channel)
+
+    def test_copy_multi_channel_output_groups_shared_single_image_copy(self):
+        skill = (PLUGIN_ROOT / "skills" / "onion-copy" / "SKILL.md").read_text(encoding="utf-8")
+        response = (PLUGIN_ROOT / "shared" / "references" / "response-format.md").read_text(encoding="utf-8")
+        evals = json.loads((PLUGIN_ROOT / "skills" / "onion-copy" / "evals" / "evals.json").read_text(encoding="utf-8"))
+
+        for text in (skill, response):
+            self.assertIn("仅当用户同时要求应用商店和学习机单图", text)
+            self.assertIn("应用商店单图和学习机单图合并展示", text)
+            self.assertIn("先做合法组合过滤", text)
+            self.assertIn("生成范围表", text)
+            self.assertIn("编号全局唯一", text)
+            self.assertIn("用户只要求学习机单图", text)
+            self.assertIn("用户只要求应用商店单图", text)
+            self.assertIn("如果用户要求两个渠道都入库", text)
+
+        eval_names = {item["name"]: item for item in evals["evals"]}
+        self.assertIn("selected-direction-all-channels-all-forms-shared-single", eval_names)
+        expected = eval_names["selected-direction-all-channels-all-forms-shared-single"]["expected_output"]
+        self.assertIn("应用商店 / 学习机 · 单图", expected)
+        self.assertIn("展示 12 条", expected)
+        self.assertIn("Base 写 14 条", expected)
+
+    def test_copy_reference_examples_do_not_use_legacy_candidate_layout(self):
+        channel = (PLUGIN_ROOT / "skills" / "onion-copy" / "references" / "渠道.md").read_text(encoding="utf-8")
+        manual = (PLUGIN_ROOT / "tests" / "manual-test-cases.md").read_text(encoding="utf-8")
+
+        for text in (channel, manual):
+            self.assertNotIn("文案 1｜", text)
+            self.assertNotIn("关联方向：", text)
+        self.assertIn("| 编号 | 主标题 | 副标题 |", channel)
+        self.assertIn("| 编号 | 主标题 | 副标题 |", manual)
+
+    def test_private_tutor_course_knowledge_is_available(self):
+        knowledge = PLUGIN_ROOT / "shared" / "knowledge" / "功能-洋葱私教班.md"
+        self.assertTrue(knowledge.exists())
+        text = knowledge.read_text(encoding="utf-8")
+        business = (PLUGIN_ROOT / "shared" / "references" / "business-knowledge.md").read_text(encoding="utf-8")
+        copy_skill = (PLUGIN_ROOT / "skills" / "onion-copy" / "SKILL.md").read_text(encoding="utf-8")
+
+        self.assertIn("洋葱私教班", text)
+        self.assertIn("面向人群：学生", text)
+        self.assertIn("应用商店信息流", text)
+        self.assertIn("AI入学诊断", text)
+        self.assertIn("30分钟沉浸课堂", text)
+        self.assertIn("AI快速解答 + 真人深度辅导", text)
+        self.assertIn("功能-洋葱私教班.md", business)
+        self.assertIn("功能-洋葱私教班.md", copy_skill)
 
     def test_image_visual_config_preview_and_write_contracts_are_explicit(self):
         text = (PLUGIN_ROOT / "skills" / "onion-image" / "SKILL.md").read_text(encoding="utf-8")

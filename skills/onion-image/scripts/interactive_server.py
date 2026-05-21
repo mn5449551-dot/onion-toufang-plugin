@@ -186,28 +186,6 @@ FALLBACK_SLOTS = [
         "height": None,
         "maxFileSizeKb": 999999,
     },
-    {
-        "id": "passthrough_learning_device_double_original",
-        "platform": "原图直出",
-        "name": "学习机双图原图直出",
-        "channel": "学习机",
-        "imageForm": "双图",
-        "ratio": "1:1",
-        "width": None,
-        "height": None,
-        "maxFileSizeKb": 999999,
-    },
-    {
-        "id": "passthrough_learning_device_triple_original",
-        "platform": "原图直出",
-        "name": "学习机三图原图直出",
-        "channel": "学习机",
-        "imageForm": "三图",
-        "ratio": "1:1",
-        "width": None,
-        "height": None,
-        "maxFileSizeKb": 999999,
-    },
 ]
 
 

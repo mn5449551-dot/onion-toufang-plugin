@@ -1424,8 +1424,8 @@
       "sub_channel": "",
       "placement": "banner",
       "name": "banner",
-      "image_form": "双图",
-      "image_count": 2,
+      "image_form": "单图",
+      "image_count": 1,
       "target_width": 840,
       "target_height": 404,
       "target_size": "840x404",
@@ -1442,7 +1442,7 @@
       "cta_policy": "forbidden",
       "enabled": true,
       "disabled_reason": "",
-      "notes": "2 张；背景不要用站内 AI 生成",
+      "notes": "背景不要用站内 AI 生成",
       "source": "research/渠道版位规则汇总.md rev320 2026-05-18"
     },
     {

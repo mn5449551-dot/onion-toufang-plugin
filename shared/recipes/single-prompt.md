@@ -14,7 +14,7 @@ The viewer should understand in 1-3 seconds:
 
 | Decision | Guidance |
 |---|---|
-| Emotion strength | 信息流 can be sharper; 应用商店 should be calmer and clearer; 学习机 should sound like a student, not a parent |
+| Emotion strength | 文案默认学生视角；信息流 can be sharper; 应用商店 / 学习机单图 should stay clear,口语化, and grounded in a concrete student scene |
 | Person vs tool |人物 catches attention; screen/tool details prove the selling point |
 | Text size | 信息流 title can dominate; 应用商店/学习机 should leave more room for product proof |
 | IP usage | Use IP when it helps emotion or guidance; skip IP for text-led functional ads |

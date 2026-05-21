@@ -11,9 +11,10 @@
 优先级：
 
 1. `canonical/` 是权威业务定义，适合沉淀为硬规则或字段语义。
-2. `app图文/洋葱广告skills/_shared/knowledge/卖点库.md` 是已爬取 APP 功能和通用卖点的主参考，适合补全功能-卖点矩阵。
-3. `references/for-stage-*` 是按生产阶段加载的经验材料，只在对应任务需要时读取。
-4. `references/archived/` 是历史材料，默认不读、不迁移，除非用户明确要追溯旧方案。
+2. `shared/knowledge/卖点库.md` 是 APP 功能和通用卖点的主参考，适合补全功能-卖点矩阵。
+3. `shared/knowledge/功能-洋葱私教班.md` 是洋葱私教班课程事实、卖点和文案手册规则的主参考；涉及私教班、AI定制班、30 分钟课堂、AI+真人辅导时优先读取。
+4. `references/for-stage-*` 是按生产阶段加载的经验材料，只在对应任务需要时读取。
+5. `references/archived/` 是历史材料，默认不读、不迁移，除非用户明确要追溯旧方案。
 
 不要把整包业务知识塞进任一 `SKILL.md`。Skill 只保留决策原则和少量事实，具体经验放在 reference，按任务阶段读取。
 
@@ -22,7 +23,7 @@
 | Skill | 可参考的业务知识 | 用途 |
 |---|---|---|
 | `onion-direction` | `canonical/字段定义-方向.md`、`canonical/好方向示例.md`、`canonical/时间节点推荐表-2026-通用.md`、`references/for-stage-2b/*` | 方向字段语义、切入角度、多样性、时间节点、痛点和卖点 |
-| `onion-copy` | `canonical/字段定义-文案.md`、`canonical/广告主语约束.md`、`references/for-stage-3b/*` | 文案字段、copyType、渠道语气 |
+| `onion-copy` | `canonical/字段定义-文案.md`、`canonical/广告主语约束.md`、`references/for-stage-3b/*`、`shared/knowledge/卖点库.md`、`shared/knowledge/功能-洋葱私教班.md` | 文案字段、copyType、渠道语气、功能事实和课程卖点 |
 | `onion-image` | `canonical/字段定义-图片.md`、`canonical/广告主语约束.md`、`references/for-stage-4b/*` | 图组字段、视觉合规、系列一致性、CTA/Logo/IP |
 | `onion-image-iterate` | `references/for-stage-4b/图片生成参考/series-consistency.md`、`image-to-image-tips.md` | SAME/CHANGE、基准图继承、Logo/IP/CTA 一致性 |
 
