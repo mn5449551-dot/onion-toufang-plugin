@@ -1243,6 +1243,19 @@ class OnionInteractionHandler(SimpleHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", "0"))
         try:
             data = json.loads(self.rfile.read(length).decode("utf-8"))
+            if not isinstance(data, dict):
+                raise ValueError("POST body must be a JSON object")
+            body_request_id = str(data.get("request_id") or "")
+            server_request_id = str(self.server.request_id)  # type: ignore[attr-defined]
+            if body_request_id != server_request_id:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "error": f"request_id mismatch: body={body_request_id or '<missing>'}, server={server_request_id}",
+                    },
+                    409,
+                )
+                return
             if parsed.path == "/api/image-sets":
                 result = update_image_sets(self.server.output_dir, self.server.request_id, data)  # type: ignore[attr-defined]
                 output_path = self.server.output_dir / IMAGE_SETS_FILE  # type: ignore[attr-defined]

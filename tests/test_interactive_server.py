@@ -213,6 +213,40 @@ class InteractiveServerTests(unittest.TestCase):
             self.assertEqual(live_sets_payload["sets"][0]["thumb"], ["set1_img1.png"])
             self.assertEqual(logo_status, 200)
 
+    def test_post_rejects_request_id_mismatch_without_writing_artifacts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp)
+            httpd = self.server.OnionInteractionServer(
+                ("127.0.0.1", 0),
+                output_dir=output_dir,
+                request_id="current-req",
+                context={},
+                platform_rules=None,
+            )
+            thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+            thread.start()
+            try:
+                for endpoint, artifact_name in (
+                    ("/api/image-config", "image-config-result.json"),
+                    ("/api/image-selection", "image-selection-result.json"),
+                    ("/api/image-sets", "image-sets.json"),
+                ):
+                    url = f"http://127.0.0.1:{httpd.server_port}{endpoint}"
+                    body = json.dumps({"request_id": "old-req"}, ensure_ascii=False).encode("utf-8")
+                    req = request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST")
+                    with self.assertRaises(error.HTTPError) as raised:
+                        request.urlopen(req, timeout=5)
+                    payload = json.loads(raised.exception.read().decode("utf-8"))
+
+                    self.assertEqual(raised.exception.code, 409)
+                    self.assertFalse(payload["ok"])
+                    self.assertIn("request_id", payload["error"])
+                    self.assertFalse((output_dir / artifact_name).exists())
+            finally:
+                httpd.shutdown()
+                thread.join(timeout=5)
+                httpd.server_close()
+
     def test_static_file_paths_cannot_escape_output_dir(self):
         with tempfile.TemporaryDirectory() as tmp:
             output_dir = Path(tmp) / "output"
@@ -599,6 +633,7 @@ class InteractiveServerTests(unittest.TestCase):
             finally:
                 httpd.shutdown()
                 thread.join(timeout=5)
+                httpd.server_close()
 
         self.assertEqual(raised.exception.code, 409)
         self.assertIn("旧配置页或旧 request", body)
