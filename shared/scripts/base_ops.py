@@ -12,6 +12,17 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_BASE_TOKEN = "WIoGb0ksnaREvJsPtQCcW8Lsnfg"
+BASE_ENV_KEYS = {
+    "LARK_CLI_BIN",
+    "IMAGE_COMPRESS_TARGET_KB",
+    "ONION_AD_DISABLE_CLEANUP",
+    "ONION_AD_ORIGINAL_RETENTION_DAYS",
+    "ONION_AD_OUTPUT_ROOT",
+}
+
+
+def should_load_env_key(key: str) -> bool:
+    return key in BASE_ENV_KEYS or key.startswith("ONION_BASE_")
 
 
 def load_env() -> None:
@@ -25,7 +36,7 @@ def load_env() -> None:
             key, value = stripped.split("=", 1)
             key = key.strip()
             value = value.strip().strip('"').strip("'")
-            if key and key not in os.environ:
+            if key and should_load_env_key(key) and key not in os.environ:
                 os.environ[key] = value
 
 
@@ -68,7 +79,7 @@ def operation_name(op_type: str) -> str:
     raise ValueError(f"Unsupported operation type: {op_type}")
 
 
-def build_command(op_type: str, payload: Dict[str, Any], dry_run: bool = False) -> List[str]:
+def prepare_command(op_type: str, payload: Dict[str, Any], dry_run: bool = False) -> Tuple[List[str], Optional[str]]:
     command = [
         lark_bin(),
         "base",
@@ -80,6 +91,7 @@ def build_command(op_type: str, payload: Dict[str, Any], dry_run: bool = False) 
         "--as",
         payload.get("as_identity", "user"),
     ]
+    cwd = None
     if op_type in {"record_batch_create", "record_batch_update"}:
         command.extend(["--json", json.dumps(payload["lark_payload"], ensure_ascii=False)])
     else:
@@ -87,13 +99,22 @@ def build_command(op_type: str, payload: Dict[str, Any], dry_run: bool = False) 
             ("--record-id", "record_id"),
             ("--field-id", "field_id"),
             ("--file", "file"),
-            ("--name", "name"),
         ):
             value = payload.get(key)
             if value:
+                if key == "file":
+                    file_path = Path(str(value))
+                    if file_path.is_absolute():
+                        cwd = str(file_path.parent)
+                        value = f"./{file_path.name}"
                 command.extend([flag, str(value)])
     if dry_run:
         command.append("--dry-run")
+    return command, cwd
+
+
+def build_command(op_type: str, payload: Dict[str, Any], dry_run: bool = False) -> List[str]:
+    command, _ = prepare_command(op_type, payload, dry_run=dry_run)
     return command
 
 
@@ -204,8 +225,8 @@ def parse_record_ids(stdout: str) -> List[str]:
 
 
 def execute(op_type: str, payload: Dict[str, Any]) -> Tuple[bool, Dict[str, Any], str]:
-    command = build_command(op_type, payload, dry_run=False)
-    result = subprocess.run(command, text=True, capture_output=True)
+    command, cwd = prepare_command(op_type, payload, dry_run=False)
+    result = subprocess.run(command, cwd=cwd, text=True, capture_output=True)
     if result.returncode == 0:
         return (
             True,

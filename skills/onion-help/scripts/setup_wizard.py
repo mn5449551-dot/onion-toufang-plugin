@@ -28,7 +28,7 @@ ENV_DIR = Path.home() / ".onion-ad"
 ENV_FILE = ENV_DIR / ".env"
 ENV_TEMPLATE = PLUGIN_ROOT / ".env.template"
 PLACEHOLDER_MARKERS = ("你的", "占位", "sk-xxx", "sk-your-key", "your-key")
-PLUGIN_VERSION = "1.1.0"
+PLUGIN_VERSION = "1.1.1"
 
 
 def now_iso() -> str:

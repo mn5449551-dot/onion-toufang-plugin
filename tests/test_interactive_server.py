@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import threading
 import unittest
-from urllib import request
+from urllib import error, request
 
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[1]
@@ -112,6 +112,10 @@ class InteractiveServerTests(unittest.TestCase):
         self.assertIn("generation_mode", html)
         self.assertIn("保存配置", html)
         self.assertIn("回到 Codex 回复：好了", html)
+        self.assertIn("status-strip", html)
+        self.assertIn("diagnostics-panel", html)
+        self.assertIn("placement-warning", html)
+        self.assertIn("参考图只用于风格/版式参考", html)
         self.assertNotIn("复制 JSON", html)
         self.assertNotIn("copyResult", html)
         self.assertNotIn("__DATA_JSON__", html)
@@ -349,6 +353,63 @@ class InteractiveServerTests(unittest.TestCase):
         self.assertEqual(payload["copyRefs"][0]["copyId"], "C-001")
         self.assertEqual(payload["copyRefs"][1]["copyId"], "C-002")
 
+    def test_parse_context_accepts_utf8_bom_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "context.json"
+            path.write_bytes('{"image_form":"双图"}'.encode("utf-8-sig"))
+
+            parsed = self.server.parse_context(str(path))
+
+        self.assertEqual(parsed["image_form"], "双图")
+
+    def test_copy_array_with_double_form_normalizes_to_single_double_copy_ref(self):
+        payload = self.server.build_config_payload(
+            "req-double",
+            context={
+                "image_form": "双图",
+                "copy": ["图一：复习没方向，找洋葱私教班", "图二：先找弱点再补救 提分快准狠"],
+            },
+        )
+
+        self.assertEqual(payload["copyCount"], 1)
+        self.assertEqual(len(payload["copyRefs"]), 1)
+        self.assertEqual(payload["copyRefs"][0]["short1"], "复习没方向，找洋葱私教班")
+        self.assertEqual(payload["copyRefs"][0]["short2"], "先找弱点再补救 提分快准狠")
+        self.assertEqual(payload["copyRefs"][0]["imageForm"], "双图")
+
+    def test_copy_array_without_double_markers_is_not_merged(self):
+        normalized = self.server.normalize_context({"copy": ["候选文案 A", "候选文案 B"]})
+
+        self.assertNotIn("copy_drafts", normalized)
+        self.assertEqual(normalized["copy"], ["候选文案 A", "候选文案 B"])
+
+    def test_huawei_double_slot_enabled_for_double_context(self):
+        payload = self.server.build_config_payload("req-huawei", context={"image_form": "双图"})
+        by_id = {slot["id"]: slot for slot in payload["slots"]}
+
+        self.assertTrue(by_id["huawei-app-slot-slot-480x422"]["enabled"])
+        self.assertEqual(by_id["huawei-app-slot-slot-480x422"]["imageForm"], "双图")
+
+    def test_huawei_double_slot_disabled_for_single_context_with_form_reason(self):
+        payload = self.server.build_config_payload("req-huawei", context={"image_form": "单图"})
+        by_id = {slot["id"]: slot for slot in payload["slots"]}
+
+        self.assertFalse(by_id["huawei-app-slot-slot-480x422"]["enabled"])
+        self.assertIn("本次图片形式为单图", by_id["huawei-app-slot-slot-480x422"]["disabled_reason"])
+        self.assertNotIn("一期不支持", by_id["huawei-app-slot-slot-480x422"]["disabled_reason"])
+
+    def test_payload_contains_diagnostics(self):
+        payload = self.server.build_config_payload("req-diag", context={"image_form": "双图"})
+        diagnostics = payload["diagnostics"]
+
+        self.assertEqual(diagnostics["serverRequestId"], "req-diag")
+        self.assertEqual(diagnostics["desiredImageForm"], "双图")
+        self.assertIn("rulesPath", diagnostics)
+        self.assertIn("rulesHash", diagnostics)
+        self.assertIn("desiredChannels", diagnostics)
+        self.assertGreaterEqual(diagnostics["enabledPlacementCountsByForm"]["双图"], 1)
+        self.assertEqual(diagnostics["statusSummary"]["imageForm"], "双图")
+
     def test_ui_reference_required_is_persisted_as_blocking_codex_upload(self):
         slots = self.server.load_platform_slots()
         by_id = {slot["id"]: slot for slot in slots}
@@ -516,6 +577,34 @@ class InteractiveServerTests(unittest.TestCase):
         self.assertTrue(by_id["oppo-app-slot-slot-474x768"]["enabled"])
         self.assertFalse(by_id["oppo-rich-horizontal-big-1280x720"]["enabled"])
         self.assertFalse(by_id["netease-feed-slot-slot-1280x720"]["enabled"])
+
+    def test_request_id_mismatch_returns_error_page(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            httpd = self.server.OnionInteractionServer(
+                ("127.0.0.1", 0),
+                output_dir=Path(tmp),
+                request_id="current-req",
+                context={},
+                platform_rules=None,
+            )
+            thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+            thread.start()
+            try:
+                with self.assertRaises(error.HTTPError) as raised:
+                    request.urlopen(
+                        f"http://127.0.0.1:{httpd.server_port}/image-config?request_id=old-req",
+                        timeout=5,
+                    )
+                body = raised.exception.read().decode("utf-8")
+            finally:
+                httpd.shutdown()
+                thread.join(timeout=5)
+
+        self.assertEqual(raised.exception.code, 409)
+        self.assertIn("旧配置页或旧 request", body)
+        self.assertIn("current-req", body)
+        self.assertIn("old-req", body)
+        self.assertNotIn("__DATA_JSON__", body)
 
     def test_config_result_rejects_slots_mismatched_with_context(self):
         slots = self.server.constrained_slots_for_context(context={"渠道": "信息流", "图片形式": "单图"})

@@ -37,6 +37,56 @@
     }
     h1 { margin: 0; font-size: 18px; color: var(--ink); }
     .request { color: var(--muted); font-size: 12px; }
+    .supportbar {
+      width: min(1280px, calc(100vw - 32px));
+      margin: 14px auto 0;
+      display: grid;
+      gap: 8px;
+    }
+    .status-strip,
+    .reference-image-note,
+    .placement-warning,
+    .diagnostics-panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 10px 12px;
+    }
+    .status-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 18px;
+      color: var(--body);
+      align-items: center;
+    }
+    .status-strip strong { color: var(--ink); }
+    .diagnostics-panel summary {
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .diagnostics-panel pre {
+      margin: 10px 0 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--body);
+    }
+    .reference-image-note {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .placement-warning {
+      display: none;
+      margin: 10px 0 12px;
+      border-color: #e7b35e;
+      background: #fff8e8;
+      color: #79510e;
+      line-height: 1.55;
+    }
+    .placement-warning.visible { display: block; }
     main {
       width: min(1280px, calc(100vw - 32px));
       margin: 16px auto 96px;
@@ -230,12 +280,21 @@
     <h1 id="page-title">图片生成配置</h1>
     <span class="request">Request __REQUEST_ID__</span>
   </div>
+  <div class="supportbar">
+    <div id="status-strip" class="status-strip"></div>
+    <details id="diagnostics-panel" class="diagnostics-panel">
+      <summary>诊断信息</summary>
+      <pre id="diagnostics-content"></pre>
+    </details>
+    <div id="reference-image-note" class="reference-image-note hidden">参考图只用于风格/版式参考，不决定本次版位。目标版位以下方选择为准。</div>
+  </div>
   <main>
     <section class="panel">
       <h2>投放场景</h2>
       <div id="category-tabs" class="tabs"></div>
       <h2>具体版位</h2>
       <div class="hint">可多选。用户只选版位，不选尺寸；卡片内展示目标尺寸、gpt 出图尺寸、压缩上限和一期支持状态。</div>
+      <div id="placement-warning" class="placement-warning"></div>
       <div id="slot-grid" class="slot-grid"></div>
     </section>
     <aside class="panel">
@@ -328,6 +387,7 @@
   </div>
   <script>
     const DATA = __DATA_JSON__;
+    const DIAGNOSTICS = DATA.diagnostics || {};
     const MAX_GROUP_COUNT = DATA.maxGroupCount || 100;
     const COPY_COUNT = DATA.copyCount || 1;
     const COPY_REFS = Array.isArray(DATA.copyRefs) ? DATA.copyRefs : [];
@@ -378,6 +438,49 @@
         text = text.slice(0, MAX_DELIVERY_NAME_LENGTH).replace(/[ ._-]+$/g, "");
       }
       return text || fallback;
+    }
+
+    function renderStatusStrip() {
+      const summary = DIAGNOSTICS.statusSummary || {};
+      const form = summary.imageForm || DATA.desiredImageForm || "未限定";
+      const channel = summary.channel || DATA.desiredChannels?.[0] || state.category || "未限定";
+      const count = Number.isFinite(Number(summary.enabledDesiredFormCount))
+        ? Number(summary.enabledDesiredFormCount)
+        : enabledSlots().filter(slot => !DATA.desiredImageForm || slot.imageForm === DATA.desiredImageForm).length;
+      const label = form === "双图" ? "可选双图版位" : `可选${form}版位`;
+      const started = DIAGNOSTICS.startedAt || "-";
+      document.getElementById("status-strip").innerHTML = `
+        <span>当前识别：<strong>${form} · ${channel}</strong></span>
+        <span>${label}：<strong>${count}</strong> 个</span>
+        <span>Request：<strong>${DATA.request_id || "-"}</strong></span>
+        <span>启动时间：<strong>${started}</strong></span>
+      `;
+    }
+
+    function renderDiagnostics() {
+      const params = new URLSearchParams(window.location.search);
+      const payload = {
+        ...DIAGNOSTICS,
+        pageUrlRequestId: params.get("request_id") || DATA.request_id || ""
+      };
+      document.getElementById("diagnostics-content").textContent = JSON.stringify(payload, null, 2);
+    }
+
+    function renderReferenceNote() {
+      document.getElementById("reference-image-note").classList.toggle("hidden", !DIAGNOSTICS.hasReferenceImage);
+    }
+
+    function renderPlacementWarning() {
+      const warning = document.getElementById("placement-warning");
+      const desiredForm = DATA.desiredImageForm || "";
+      const categorySlots = slotsForCategory();
+      const enabledMatchingSlots = categorySlots.filter(slot => slot.enabled !== false && (!desiredForm || slot.imageForm === desiredForm));
+      let message = DIAGNOSTICS.noPlacementExplanation || "";
+      if (!message && desiredForm === "双图" && enabledMatchingSlots.length === 0) {
+        message = "当前分类下没有可选双图版位。请检查渠道、图片形式或切换到应用商店。";
+      }
+      warning.textContent = message;
+      warning.classList.toggle("visible", Boolean(message));
     }
 
     function renderCategories() {
@@ -662,8 +765,12 @@
     }
 
     function renderAll() {
+      renderStatusStrip();
+      renderDiagnostics();
+      renderReferenceNote();
       renderCategories();
       renderSlots();
+      renderPlacementWarning();
       renderControls();
       renderSummary();
       ["deliveryName", "sets", "fontEnabled", "uiReferenceRequired", "iterationMode", "uploadedImageRole", "perImageNotes", "cta", "notes"].forEach(id => {

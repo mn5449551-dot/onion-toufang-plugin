@@ -1,3 +1,4 @@
+import importlib.util
 import json
 import os
 import stat
@@ -45,6 +46,84 @@ class BaseScriptTests(unittest.TestCase):
     def read_json_stdout(self, result):
         self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads(result.stdout)
+
+    def load_base_ops_module(self):
+        spec = importlib.util.spec_from_file_location("base_ops", SCRIPTS_DIR / "base_ops.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def test_base_env_loader_ignores_render_api_variables(self):
+        base_ops = self.load_base_ops_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            env_dir = root / ".onion-ad"
+            env_dir.mkdir()
+            (env_dir / ".env").write_text(
+                "\n".join(
+                    [
+                        "ONION_BASE_APP_TOKEN=app_from_file",
+                        "LARK_CLI_BIN=/tmp/fake-lark",
+                        "LAOZHANG_API_BASE=https://api.laozhang.ai/v1",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            old_values = {key: os.environ.get(key) for key in ("HOME", "ONION_BASE_APP_TOKEN", "LARK_CLI_BIN", "LAOZHANG_API_BASE")}
+            for key in ("ONION_BASE_APP_TOKEN", "LARK_CLI_BIN", "LAOZHANG_API_BASE"):
+                os.environ.pop(key, None)
+            os.environ["HOME"] = str(root)
+            try:
+                base_ops.load_env()
+
+                self.assertEqual(os.environ["ONION_BASE_APP_TOKEN"], "app_from_file")
+                self.assertEqual(os.environ["LARK_CLI_BIN"], "/tmp/fake-lark")
+                self.assertNotIn("LAOZHANG_API_BASE", os.environ)
+            finally:
+                for key, value in old_values.items():
+                    if value is None:
+                        os.environ.pop(key, None)
+                    else:
+                        os.environ[key] = value
+
+    def test_attachment_upload_command_omits_name(self):
+        base_ops = self.load_base_ops_module()
+
+        command, cwd = base_ops.prepare_command(
+            "attachment_upload",
+            {
+                "base_token": "app",
+                "table_id": "tbl",
+                "record_id": "rec",
+                "field_id": "fld",
+                "file": "image.png",
+                "name": "ignored.png",
+            },
+        )
+
+        self.assertNotIn("--name", command)
+        self.assertEqual(command[command.index("--file") + 1], "image.png")
+        self.assertIsNone(cwd)
+
+    def test_attachment_upload_absolute_file_runs_from_parent_with_relative_file(self):
+        base_ops = self.load_base_ops_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "image.png"
+            image.write_bytes(b"fake")
+
+            command, cwd = base_ops.prepare_command(
+                "attachment_upload",
+                {
+                    "base_token": "app",
+                    "table_id": "tbl",
+                    "record_id": "rec",
+                    "field_id": "fld",
+                    "file": str(image),
+                },
+            )
+
+            self.assertEqual(cwd, str(image.parent))
+            self.assertEqual(command[command.index("--file") + 1], "./image.png")
 
     def test_write_record_dry_run_converts_fields_to_rows(self):
         with tempfile.TemporaryDirectory() as tmp:

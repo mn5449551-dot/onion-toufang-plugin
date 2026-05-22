@@ -11,6 +11,8 @@ their local image assets from the same output directory.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
+import hashlib
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
@@ -28,6 +30,7 @@ DEFAULT_CHANNEL_RULES = SKILL_DIR / "config" / "channel-placement-rules.json"
 ASSET_MANIFEST = SKILL_DIR / "assets" / "asset-manifest.json"
 CONFIG_TEMPLATE = SKILL_DIR / "templates" / "image-config.html"
 FONT_DIR = SKILL_DIR / "assets" / "font-references"
+PLUGIN_METADATA = PLUGIN_ROOT / ".codex-plugin" / "plugin.json"
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 SHARED_SCRIPTS = PLUGIN_ROOT / "shared" / "scripts"
@@ -209,6 +212,21 @@ FORM_MAP = {
     "triple": "三图",
 }
 
+IMAGE_MARKERS = (
+    ("第一张", 1),
+    ("第1张", 1),
+    ("图一", 1),
+    ("图1", 1),
+    ("第二张", 2),
+    ("第2张", 2),
+    ("图二", 2),
+    ("图2", 2),
+    ("第三张", 3),
+    ("第3张", 3),
+    ("图三", 3),
+    ("图3", 3),
+)
+
 
 def html_escape(value: object) -> str:
     return (
@@ -218,6 +236,10 @@ def html_escape(value: object) -> str:
         .replace(">", "&gt;")
         .replace('"', "&quot;")
     )
+
+
+def current_local_time() -> str:
+    return datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S")
 
 
 def find_free_port(preferred: int) -> int:
@@ -423,6 +445,70 @@ def normalize_desired_channels(context: dict[str, Any]) -> list[str]:
     return channels
 
 
+def split_image_marker(value: Any) -> tuple[int | None, str]:
+    text = str(value or "").strip()
+    if not text:
+        return None, ""
+    stripped = text.lstrip("-• ").strip()
+    compact = stripped.replace(" ", "")
+    for marker, index in IMAGE_MARKERS:
+        marker_len = len(marker)
+        if compact.startswith(marker):
+            if stripped.startswith(marker):
+                body = stripped[marker_len:]
+            else:
+                body = compact[marker_len:]
+            body = body.lstrip(" ：:、,，.-\t")
+            return index, body.strip() or text
+    return None, text
+
+
+def normalize_shorthand_copy_items(items: list[Any], desired_form: str) -> dict[str, Any] | None:
+    parsed = []
+    marker_indices: set[int] = set()
+    for item in items:
+        index, body = split_image_marker(item)
+        if not body:
+            continue
+        if index:
+            marker_indices.add(index)
+        parsed.append((index, body))
+    if not parsed:
+        return None
+    image_form = desired_form if desired_form in {"双图", "三图"} else ""
+    if not image_form and {1, 2}.issubset(marker_indices):
+        image_form = "三图" if 3 in marker_indices else "双图"
+    expected_count = {"双图": 2, "三图": 3}.get(image_form, 0)
+    if expected_count < 2 or len(parsed) < expected_count:
+        return None
+
+    by_index: dict[int, str] = {}
+    for position, (marker_index, body) in enumerate(parsed, start=1):
+        by_index[marker_index or position] = body
+    if not all(by_index.get(index) for index in range(1, expected_count + 1)):
+        return None
+
+    result: dict[str, Any] = {"copyDraftId": "draft-1", "imageForm": image_form}
+    for index in range(1, expected_count + 1):
+        result[f"short{index}"] = by_index[index]
+    return result
+
+
+def normalize_context(context: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(context, dict):
+        return {}
+    normalized = dict(context)
+    if any(key in normalized for key in ("copy_drafts", "copyDrafts", "copies", "文案列表")):
+        return normalized
+    copy_items = normalized.get("copy")
+    if not isinstance(copy_items, list):
+        return normalized
+    draft = normalize_shorthand_copy_items(copy_items, normalize_desired_image_form(normalized))
+    if draft:
+        normalized["copy_drafts"] = [draft]
+    return normalized
+
+
 def apply_context_image_form(slots: list[dict[str, Any]], desired_form: str) -> list[dict[str, Any]]:
     if not desired_form:
         return slots
@@ -453,7 +539,7 @@ def apply_context_channels(slots: list[dict[str, Any]], desired_channels: list[s
 
 
 def constrained_slots_for_context(context: dict[str, Any] | None = None, path: Path | None = None) -> list[dict[str, Any]]:
-    context = context or {}
+    context = normalize_context(context)
     desired_form = normalize_desired_image_form(context)
     desired_channels = normalize_desired_channels(context)
     slots = load_platform_slots(path)
@@ -463,6 +549,142 @@ def constrained_slots_for_context(context: dict[str, Any] | None = None, path: P
 
 def slots_by_id(path: Path | None = None, context: dict[str, Any] | None = None) -> dict[str, dict[str, Any]]:
     return {str(slot["id"]): slot for slot in constrained_slots_for_context(context, path) if slot.get("id")}
+
+
+def file_sha256(path: Path | None) -> str:
+    if not path or not path.exists():
+        return ""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def load_plugin_version() -> str:
+    if not PLUGIN_METADATA.exists():
+        return ""
+    try:
+        return str(json.loads(PLUGIN_METADATA.read_text(encoding="utf-8")).get("version") or "")
+    except Exception:
+        return ""
+
+
+def enabled_counts_by_form(slots: list[dict[str, Any]]) -> dict[str, int]:
+    counts = {"单图": 0, "双图": 0, "三图": 0}
+    for slot in slots:
+        if slot.get("enabled") is False:
+            continue
+        form = str(slot.get("imageForm") or slot.get("image_form") or "")
+        if form:
+            counts[form] = counts.get(form, 0) + 1
+    return counts
+
+
+def disabled_reason_counts(slots: list[dict[str, Any]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for slot in slots:
+        if slot.get("enabled") is not False:
+            continue
+        reason = str(slot.get("disabled_reason") or "未注明原因")
+        counts[reason] = counts.get(reason, 0) + 1
+    return counts
+
+
+def context_has_reference_image(context: dict[str, Any]) -> bool:
+    fields = flatten_context(context)
+    for key in (
+        "reference_image",
+        "referenceImage",
+        "reference_images",
+        "uploaded_image",
+        "uploadedImage",
+        "image_path",
+        "参考图",
+        "参考图片",
+    ):
+        if fields.get(key):
+            return True
+    return False
+
+
+def no_placement_explanation(
+    slots: list[dict[str, Any]],
+    desired_form: str,
+    desired_channels: list[str],
+    rules_loaded: bool,
+) -> str:
+    if desired_form != "双图":
+        return ""
+    enabled_double = [
+        slot
+        for slot in slots
+        if slot.get("enabled") is not False and (slot.get("imageForm") or slot.get("image_form")) == "双图"
+    ]
+    if enabled_double:
+        return ""
+
+    messages: list[str] = []
+    if desired_channels and all(channel == "学习机" for channel in desired_channels):
+        messages.append("当前渠道锁定为学习机，学习机一期仅支持单图版位")
+    if not rules_loaded:
+        messages.append("版位规则未加载，当前使用兜底版位")
+
+    by_id = {str(slot.get("id")): slot for slot in slots}
+    huawei_double = by_id.get("huawei-app-slot-slot-480x422")
+    if huawei_double:
+        huawei_channel = huawei_double.get("channel") or huawei_double.get("category")
+        if huawei_double.get("enabled") is False:
+            reason = huawei_double.get("disabled_reason") or "未注明原因"
+            messages.append(f"华为双图版位当前不可选：{reason}")
+        elif desired_channels and huawei_channel not in desired_channels:
+            messages.append("华为双图版位存在且可用，但被当前渠道隐藏；请切换到应用商店")
+
+    reasons = []
+    for slot in slots:
+        if (slot.get("imageForm") or slot.get("image_form")) != "双图" or slot.get("enabled") is not False:
+            continue
+        reason = str(slot.get("disabled_reason") or "").strip()
+        if reason and reason not in reasons:
+            reasons.append(reason)
+    if reasons:
+        messages.append("匹配双图版位的不可选原因：" + "；".join(reasons[:3]))
+    if not messages:
+        messages.append("当前渠道和图片形式下没有可用双图版位")
+    return "；".join(messages) + "。"
+
+
+def build_payload_diagnostics(
+    request_id: str,
+    context: dict[str, Any],
+    slots: list[dict[str, Any]],
+    desired_form: str,
+    desired_channels: list[str],
+    categories: list[str],
+    platform_rules: Path | None,
+    started_at: str | None,
+) -> dict[str, Any]:
+    rules_path = platform_rules or DEFAULT_CHANNEL_RULES
+    rules_loaded = bool(rules_path and rules_path.exists())
+    counts = enabled_counts_by_form(slots)
+    status_channel = desired_channels[0] if desired_channels else (categories[0] if categories else "")
+    status_form = desired_form or "未限定"
+    enabled_count = counts.get(desired_form, 0) if desired_form else sum(counts.values())
+    return {
+        "pluginVersion": load_plugin_version(),
+        "rulesPath": str(rules_path.resolve()) if rules_path else "",
+        "rulesLoaded": rules_loaded,
+        "rulesHash": file_sha256(rules_path),
+        "desiredImageForm": desired_form,
+        "desiredChannels": desired_channels,
+        "enabledPlacementCountsByForm": counts,
+        "disabledReasonCounts": disabled_reason_counts(slots),
+        "serverRequestId": request_id,
+        "startedAt": started_at or "",
+        "statusSummary": {
+            "imageForm": status_form,
+            "channel": status_channel or "未限定",
+            "enabledDesiredFormCount": enabled_count,
+        },
+        "hasReferenceImage": context_has_reference_image(context),
+        "noPlacementExplanation": no_placement_explanation(slots, desired_form, desired_channels, rules_loaded),
+    }
 
 
 def load_ip_options(manifest_path: Path = ASSET_MANIFEST) -> list[dict[str, Any]]:
@@ -647,8 +869,9 @@ def build_config_payload(
     request_id: str,
     context: dict[str, Any] | None = None,
     platform_rules: Path | None = None,
+    started_at: str | None = None,
 ) -> dict[str, Any]:
-    context = context or {}
+    context = normalize_context(context)
     generation_mode = str(context.get("generation_mode") or context.get("generationMode") or "explore")
     if generation_mode not in {"explore", "iterate"}:
         generation_mode = "explore"
@@ -662,6 +885,16 @@ def build_config_payload(
         category = slot.get("category") or slot.get("channel")
         if category and category not in categories:
             categories.append(category)
+    diagnostics = build_payload_diagnostics(
+        request_id=request_id,
+        context=context,
+        slots=slots,
+        desired_form=desired_form,
+        desired_channels=desired_channels,
+        categories=categories or ["应用商店", "信息流", "学习机"],
+        platform_rules=platform_rules,
+        started_at=started_at,
+    )
     return {
         "request_id": request_id,
         "context": context,
@@ -677,6 +910,7 @@ def build_config_payload(
         "fontOptions": load_font_options(),
         "logoOptions": load_logo_options(),
         "categories": categories or ["应用商店", "信息流", "学习机"],
+        "diagnostics": diagnostics,
     }
 
 
@@ -908,6 +1142,34 @@ def build_config_html(payload: dict[str, Any]) -> str:
     return template.replace("__REQUEST_ID__", request_id).replace("__DATA_JSON__", data_json)
 
 
+def build_request_mismatch_html(server_request_id: str, url_request_id: str) -> str:
+    server_id = html_escape(server_request_id)
+    url_id = html_escape(url_request_id)
+    return f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>旧配置页或旧 request</title>
+  <style>
+    body {{ margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif; background: #f6f7f9; color: #1e2329; }}
+    main {{ max-width: 720px; margin: 64px auto; background: #fff; border: 1px solid #dfe3e8; border-radius: 8px; padding: 24px; }}
+    h1 {{ margin: 0 0 16px; font-size: 20px; }}
+    p {{ line-height: 1.7; }}
+    code {{ background: #f1f3f5; border-radius: 4px; padding: 2px 6px; }}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>你打开的是旧配置页或旧 request</h1>
+    <p>当前服务 request_id: <code>{server_id}</code></p>
+    <p>URL request_id: <code>{url_id}</code></p>
+    <p>请打开本次启动输出里的链接。</p>
+  </main>
+</body>
+</html>"""
+
+
 class OnionInteractionHandler(SimpleHTTPRequestHandler):
     server_version = "OnionInteraction/1.0"
 
@@ -939,7 +1201,18 @@ class OnionInteractionHandler(SimpleHTTPRequestHandler):
             return
         if parsed.path in {"/", "/image-config"}:
             qs = parse_qs(parsed.query)
-            request_id = qs.get("request_id", [self.server.request_id])[0]  # type: ignore[attr-defined]
+            requested_ids = qs.get("request_id", [])  # type: ignore[attr-defined]
+            server_request_id = self.server.request_id  # type: ignore[attr-defined]
+            if requested_ids and requested_ids[0] != server_request_id:
+                html = build_request_mismatch_html(server_request_id, requested_ids[0])
+                body = html.encode("utf-8")
+                self.send_response(409)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+            request_id = requested_ids[0] if requested_ids else server_request_id
             html = build_config_html(self.server.payload_for(request_id))  # type: ignore[attr-defined]
             body = html.encode("utf-8")
             self.send_response(200)
@@ -1003,14 +1276,16 @@ class OnionInteractionServer(ThreadingHTTPServer):
         self.output_dir = output_dir.resolve()
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.request_id = request_id
-        self.context = context or {}
+        self.context = normalize_context(context)
         self.platform_rules = platform_rules
+        self.started_at = current_local_time()
 
     def payload_for(self, request_id: str) -> dict[str, Any]:
         return build_config_payload(
             request_id=request_id,
             context=self.context,
             platform_rules=self.platform_rules,
+            started_at=self.started_at,
         )
 
 
@@ -1019,7 +1294,7 @@ def parse_context(value: str | None) -> dict[str, Any]:
         return {}
     path = Path(value)
     if path.exists():
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8-sig"))
     return json.loads(value)
 
 
