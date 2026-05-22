@@ -34,3 +34,7 @@ def setup_status_path() -> Path:
 
 def usage_state_path() -> Path:
     return user_state_dir() / "usage-state.json"
+
+
+def update_status_path() -> Path:
+    return user_state_dir() / "update-status.json"

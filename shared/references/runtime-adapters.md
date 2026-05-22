@@ -30,13 +30,13 @@ If the answer affects paid rendering, parent group, Base write, or prompt refere
 
 ## First-Use State
 
-Every runtime should treat `~/.onion-ad/usage-state.json` as the local usage record. At the start of an onion task, if `usage-state.json` or `setup-status.json` is missing, run:
+Every runtime should treat `~/.onion-ad/usage-state.json` as the local usage record and `~/.onion-ad/update-status.json` as the cached plugin update record. At the start of an onion task, if `usage-state.json`, `setup-status.json`, or `update-status.json` is missing, run:
 
 ```bash
 python3 skills/onion-help/scripts/setup_wizard.py ensure
 ```
 
-`ensure` may do safe bootstrap work: create `~/.onion-ad/.env` from the template, create the cross-platform output root, write `setup-status.json`, and record `first_seen_at / last_seen_at / ready` in `usage-state.json`. It must not silently install `lark-cli`, log in to Feishu, or fill API tokens. If `ready=false`, stop before paid rendering or Base writes and show the blocking next actions.
+`ensure` may do safe bootstrap work: create `~/.onion-ad/.env` from the template, create the cross-platform output root, write `setup-status.json`, record `first_seen_at / last_seen_at / ready` in `usage-state.json`, and refresh `update-status.json` with a 24-hour cached plugin update check. It must not silently install `lark-cli`, log in to Feishu, fill API tokens, or discard local plugin changes. Set `ONION_PLUGIN_AUTO_UPDATE=0` to disable automatic update checks. If `ready=false`, stop before paid rendering or Base writes and show the blocking next actions.
 
 ## Async Feedback
 

@@ -21,14 +21,15 @@ SHARED_SCRIPTS = PLUGIN_ROOT / "shared" / "scripts"
 if str(SHARED_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SHARED_SCRIPTS))
 
-from runtime_paths import output_root, setup_status_path, usage_state_path  # noqa: E402
+from runtime_paths import output_root, setup_status_path, update_status_path, usage_state_path  # noqa: E402
+import plugin_update  # noqa: E402
 
 
 ENV_DIR = Path.home() / ".onion-ad"
 ENV_FILE = ENV_DIR / ".env"
 ENV_TEMPLATE = PLUGIN_ROOT / ".env.template"
 PLACEHOLDER_MARKERS = ("你的", "占位", "sk-xxx", "sk-your-key", "your-key")
-PLUGIN_VERSION = "1.1.1"
+PLUGIN_VERSION = "1.1.2"
 
 
 def now_iso() -> str:
@@ -148,6 +149,7 @@ def check_image_api(values: dict[str, str]) -> dict[str, Any]:
 def check_scripts_compile() -> dict[str, Any]:
     scripts = [
         PLUGIN_ROOT / "shared" / "scripts" / "base_ops.py",
+        PLUGIN_ROOT / "shared" / "scripts" / "plugin_update.py",
         PLUGIN_ROOT / "shared" / "scripts" / "write_record.py",
         PLUGIN_ROOT / "shared" / "scripts" / "update_status.py",
         PLUGIN_ROOT / "shared" / "scripts" / "retry_pending.py",
@@ -172,10 +174,18 @@ def next_actions(checks: dict[str, Any], profile: dict[str, str]) -> list[str]:
         actions.append("Install Pillow with python -m pip install Pillow.")
     if checks["python"]["status"] != "ok":
         actions.append("Use Python 3.8 or newer.")
+    update = checks.get("plugin_update") or {}
+    if update.get("status") == "update_available":
+        actions.append(update.get("next_action") or "Update the plugin when convenient.")
     return actions
 
 
-def build_report(operation: str) -> dict[str, Any]:
+def readiness_checks_ok(checks: dict[str, Any]) -> bool:
+    blocking = {key: value for key, value in checks.items() if key != "plugin_update"}
+    return all(item.get("status") == "ok" for item in blocking.values())
+
+
+def build_report(operation: str, update_force: bool = False, update_auto: bool = True) -> dict[str, Any]:
     values = read_env_file()
     profile = platform_profile()
     checks = {
@@ -187,6 +197,12 @@ def build_report(operation: str) -> dict[str, Any]:
         "scripts": check_scripts_compile(),
         "output_root": {"status": "ok", "path": str(output_root())},
     }
+    checks["plugin_update"] = plugin_update.check_or_update(
+        plugin_root=PLUGIN_ROOT,
+        state_path=update_status_path(),
+        force=update_force,
+        auto_update=update_auto,
+    )
     actions = next_actions(checks, profile)
     return {
         "ok": True,
@@ -196,7 +212,8 @@ def build_report(operation: str) -> dict[str, Any]:
         "output_root": str(output_root()),
         "setup_status_path": str(setup_status_path()),
         "usage_state_path": str(usage_state_path()),
-        "ready": not actions and all(item.get("status") == "ok" for item in checks.values()),
+        "update_status_path": str(update_status_path()),
+        "ready": not [action for action in actions if "plugin" not in action.lower()] and readiness_checks_ok(checks),
         "checks": checks,
         "next_actions": actions,
     }
@@ -300,7 +317,7 @@ def write_usage_state(report: dict[str, Any]) -> dict[str, Any]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Onion plugin setup and readiness checks.")
-    parser.add_argument("command", choices=("check", "bootstrap", "doctor", "ensure"))
+    parser.add_argument("command", choices=("check", "bootstrap", "doctor", "ensure", "update-check", "update"))
     args = parser.parse_args(argv)
 
     try:
@@ -308,6 +325,12 @@ def main(argv: list[str] | None = None) -> int:
             report = bootstrap()
         elif args.command == "ensure":
             report = ensure()
+        elif args.command == "update-check":
+            report = build_report(args.command, update_force=True, update_auto=False)
+            write_setup_status(report)
+        elif args.command == "update":
+            report = build_report(args.command, update_force=True, update_auto=True)
+            write_setup_status(report)
         else:
             report = build_report(args.command)
             write_setup_status(report)

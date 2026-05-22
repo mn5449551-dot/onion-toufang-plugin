@@ -76,6 +76,38 @@ class HelpSetupWizardTests(unittest.TestCase):
             self.assertNotIn("which lark-cli", result.stdout)
             self.assertNotIn("source ~/.onion-ad/.env", result.stdout)
 
+    def test_check_includes_plugin_update_status_and_disable_switch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            result = self.run_setup("check", home, {"ONION_PLUGIN_AUTO_UPDATE": "0"})
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout)
+            update = payload["checks"]["plugin_update"]
+            self.assertEqual(update["status"], "disabled")
+            self.assertFalse(update["auto_update"])
+            self.assertTrue((home / ".onion-ad" / "update-status.json").is_file())
+
+    def test_update_check_command_forces_non_mutating_update_check(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            result = self.run_setup("update-check", home, {"ONION_PLUGIN_AUTO_UPDATE": "0"})
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload["operation"], "update-check")
+            self.assertEqual(payload["checks"]["plugin_update"]["status"], "disabled")
+
+    def test_update_command_is_available(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            result = self.run_setup("update", home, {"ONION_PLUGIN_AUTO_UPDATE": "0"})
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload["operation"], "update")
+            self.assertEqual(payload["checks"]["plugin_update"]["status"], "disabled")
+
     def test_check_reports_laozhang_enterprise_concurrency_settings(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)
