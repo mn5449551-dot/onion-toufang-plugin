@@ -52,6 +52,7 @@ DIRECTION_FUNCTION_FIELD = {
         {"name": "学情报告", "hue": "Orange", "lightness": "Lighter"},
         {"name": "AI私教动画课", "hue": "Wathet", "lightness": "Lighter"},
         {"name": "AI定制班", "hue": "Carmine", "lightness": "Lighter"},
+        {"name": "AI学习系统", "hue": "Blue", "lightness": "Lighter"},
         {"name": "洋葱私教班", "hue": "Yellow", "lightness": "Lighter"},
         {"name": "错题本", "hue": "Red", "lightness": "Lighter"},
         {"name": "其他", "hue": "Gray", "lightness": "Lighter"},
@@ -272,13 +273,26 @@ def clean_select_option(option: dict[str, Any]) -> dict[str, Any]:
 
 
 def merge_select_options(existing_options: list[dict[str, Any]], desired_options: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    merged = [clean_select_option(item) for item in existing_options if item.get("name")]
-    existing_names = set(option_names(merged))
+    existing_by_name = {}
+    for option in existing_options:
+        name = str(option.get("name") or "")
+        if name and name not in existing_by_name:
+            existing_by_name[name] = clean_select_option(option)
+
+    merged = []
+    merged_names = set()
     for option in desired_options:
         name = str(option.get("name") or "")
-        if name and name not in existing_names:
+        if not name or name in merged_names:
+            continue
+        merged.append(existing_by_name.get(name) or clean_select_option(option))
+        merged_names.add(name)
+
+    for option in existing_options:
+        name = str(option.get("name") or "")
+        if name and name not in merged_names:
             merged.append(clean_select_option(option))
-            existing_names.add(name)
+            merged_names.add(name)
     return merged
 
 

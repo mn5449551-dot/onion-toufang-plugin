@@ -45,9 +45,11 @@ class BaseSchemaTests(unittest.TestCase):
         module = load_ensure_schema_module()
         options = [item["name"] for item in module.DIRECTION_FUNCTION_FIELD["options"]]
 
+        self.assertIn("AI学习系统", options)
         self.assertIn("洋葱私教班", options)
         self.assertIn("AI定制班", options)
-        self.assertLess(options.index("AI定制班"), options.index("洋葱私教班"))
+        self.assertLess(options.index("AI定制班"), options.index("AI学习系统"))
+        self.assertLess(options.index("AI学习系统"), options.index("洋葱私教班"))
 
     def test_base_schema_ensure_script_redacts_tokens_from_output(self):
         module = load_ensure_schema_module()
@@ -87,8 +89,54 @@ class BaseSchemaTests(unittest.TestCase):
             module.update_direction_function = old_update
 
         self.assertEqual(result["action"], "update")
+        self.assertIn("AI学习系统", result["missing_options"])
         self.assertIn("洋葱私教班", result["missing_options"])
         self.assertIn("自定义功能", result["to"])
+
+    def test_direction_function_update_uses_canonical_order_for_known_options(self):
+        module = load_ensure_schema_module()
+        old_field_list = module.field_list
+        old_update = module.update_direction_function
+        try:
+            module.field_list = lambda _token, _tid: [
+                {
+                    "name": "功能",
+                    "id": "fldFunc",
+                    "options": [
+                        {"name": "拍题精学", "id": "opt1", "hue": "Blue", "lightness": "Lighter"},
+                        {"name": "同步课", "id": "opt2", "hue": "Green", "lightness": "Lighter"},
+                        {"name": "总复习", "id": "opt3", "hue": "Purple", "lightness": "Lighter"},
+                        {"name": "学情报告", "id": "opt4", "hue": "Orange", "lightness": "Lighter"},
+                        {"name": "AI私教动画课", "id": "opt5", "hue": "Wathet", "lightness": "Lighter"},
+                        {"name": "AI定制班", "id": "opt6", "hue": "Carmine", "lightness": "Lighter"},
+                        {"name": "洋葱私教班", "id": "opt7", "hue": "Yellow", "lightness": "Lighter"},
+                        {"name": "错题本", "id": "opt8", "hue": "Red", "lightness": "Lighter"},
+                        {"name": "其他", "id": "opt9", "hue": "Gray", "lightness": "Lighter"},
+                    ],
+                }
+            ]
+            module.update_direction_function = lambda *_args, **_kwargs: {"ok": True}
+
+            result = module.ensure_direction_function_options("token", "tbl", apply=False)
+        finally:
+            module.field_list = old_field_list
+            module.update_direction_function = old_update
+
+        self.assertEqual(
+            result["to"],
+            [
+                "拍题精学",
+                "同步课",
+                "总复习",
+                "学情报告",
+                "AI私教动画课",
+                "AI定制班",
+                "AI学习系统",
+                "洋葱私教班",
+                "错题本",
+                "其他",
+            ],
+        )
 
     def test_select_option_merge_strips_field_list_metadata(self):
         module = load_ensure_schema_module()
@@ -98,9 +146,9 @@ class BaseSchemaTests(unittest.TestCase):
             [{"name": "洋葱私教班", "hue": "Yellow", "lightness": "Lighter"}],
         )
 
-        self.assertEqual(merged[0], {"name": "自定义功能", "hue": "Gray", "lightness": "Lighter"})
-        self.assertNotIn("id", merged[0])
-        self.assertEqual(merged[1]["name"], "洋葱私教班")
+        self.assertEqual(merged[0]["name"], "洋葱私教班")
+        self.assertEqual(merged[1], {"name": "自定义功能", "hue": "Gray", "lightness": "Lighter"})
+        self.assertNotIn("id", merged[1])
 
     def test_view_order_requires_explicit_view_id(self):
         module = load_ensure_schema_module()

@@ -437,6 +437,17 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("功能-洋葱私教班.md", business)
         self.assertIn("功能-洋葱私教班.md", copy_skill)
 
+    def test_ai_learning_system_function_option_is_available(self):
+        selling_points = (PLUGIN_ROOT / "shared" / "knowledge" / "卖点库.md").read_text(encoding="utf-8")
+        schema = (PLUGIN_ROOT / "shared" / "base_schema.md").read_text(encoding="utf-8")
+        direction_skill = (PLUGIN_ROOT / "skills" / "onion-direction" / "SKILL.md").read_text(encoding="utf-8")
+
+        self.assertIn("AI学习系统", selling_points)
+        self.assertIn("AI学习系统", schema)
+        self.assertIn("AI学习系统", direction_skill)
+        self.assertIn("素材表达包装", selling_points)
+        self.assertIn("不编新产品能力", selling_points)
+
     def test_image_visual_config_preview_and_write_contracts_are_explicit(self):
         text = (PLUGIN_ROOT / "skills" / "onion-image" / "SKILL.md").read_text(encoding="utf-8")
 
