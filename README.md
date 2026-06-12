@@ -202,10 +202,8 @@ feedbacks（反馈池，记录稳定可复用的用户反馈）
 
 ## 🤝 跟其他 Skill 的协同
 
-本 plugin 操作飞书 Base 时应配合 `lark-base` skill 校对命令细节。
-本 plugin 只负责"业务规则"（出什么、怎么写、字段含义）；lark-cli 的命令格式 / 错误处理 / 限流以 `lark-base` 和 `lark-cli --help` 为准。
-
-不要依赖 Claude / Codex 自动加载其他 skill；涉及 Base 读写时显式使用 `lark-base`。
+核心流程使用 `shared/scripts/*` 共享脚本读写 Base，**不需要加载 `lark-base` skill**（命令拼装、dry-run、重试、pending 兜底已固化在脚本里）。
+本 plugin 只负责"业务规则"（出什么、怎么写、字段含义）；只有人工排查或维护时需要直接使用 `lark-cli`，才用 `lark-base` skill 和 `lark-cli --help` 校对命令格式 / 错误处理 / 限流细节。
 
 ---
 

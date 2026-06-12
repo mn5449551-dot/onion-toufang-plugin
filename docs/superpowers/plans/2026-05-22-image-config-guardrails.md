@@ -1,5 +1,7 @@
 # Image Config Guardrails Implementation Plan
 
+> ✅ **已实现存档（2026-06-11 复核）**：本计划全部任务已落地于 plugin v1.1.2（含 `tests/test_base_scripts.py` 等测试）。下方 checkbox 未勾选仅为历史遗留，不代表待办；请勿按本文件重新实施。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the onion-image config page correctly recognize double-image shorthand, expose stale-page diagnostics, and keep Base attachment upload compatible with current `lark-cli`.

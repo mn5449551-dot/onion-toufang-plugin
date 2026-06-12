@@ -45,7 +45,7 @@ When reference images are used, describe their roles explicitly in the same orde
 
 Prompt 正文不写具体像素、`target_size`、`render_size`、KB 上限或比例数字。这些是配置和工具参数，只从配置页的 `placements[]` 读取，并传给 `render.py --size`、导出和压缩脚本。
 
-Prompt 里只保留竖版 / 横版 / 方图等构图语境，例如“横版应用商店三图的第 1 张”“竖版信息流双图的第 1 张”。不要写具体像素生成与导出信息，也不要写比例数字。
+Prompt 里只保留竖版 / 横版 / 方图等构图语境，例如“横版应用商店三图的第 1 张”“竖版信息流单图”。不要写具体像素生成与导出信息，也不要写比例数字。
 
 ## Screen UI Gate
 

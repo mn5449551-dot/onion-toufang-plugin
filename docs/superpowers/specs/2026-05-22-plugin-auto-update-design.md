@@ -1,5 +1,7 @@
 # Plugin Auto Update Design
 
+> ✅ **已实现存档（2026-06-11 复核）**：本设计已完整落地于 plugin v1.1.2，本文件仅作历史记录。
+
 **Goal:** Let onion users detect and safely update to the latest GitHub plugin version without spending model/API tokens on every startup.
 
 ## Scope

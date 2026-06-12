@@ -104,7 +104,8 @@ def find_project_root(start: Path) -> Path:
     """Find the plugin root from a script path; fall back to cwd."""
     cur = start.resolve()
     while True:
-        if (cur / ".claude-plugin").is_dir() and (cur / "skills").is_dir():
+        has_plugin_marker = (cur / ".claude-plugin").is_dir() or (cur / ".codex-plugin").is_dir()
+        if has_plugin_marker and (cur / "skills").is_dir():
             return cur
         parent = cur.parent
         if parent == cur:

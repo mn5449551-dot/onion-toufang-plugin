@@ -1,5 +1,7 @@
 # Image Config Guardrails Design
 
+> ✅ **已实现存档（2026-06-11 复核）**：本设计已完整落地于 plugin v1.1.2，本文件仅作历史记录。
+
 **Goal:** Prevent image configuration pages from misleading users when a request is meant to be double-image creative but stale pages, loose context, Windows encoding, or placement filtering make double-image slots appear unavailable.
 
 **Scope:** This design covers `onion-image` configuration startup and Base attachment upload compatibility. It does not add remote version management, automatic plugin updates, or global process killing.

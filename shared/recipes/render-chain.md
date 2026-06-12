@@ -149,7 +149,7 @@ Manifest shape:
       "image_form": "single",
       "prompt": "完整生图提示词",
       "size": "1568x672",
-      "quality": "low",
+      "quality": "medium",
       "output": "/tmp/onion-ad/<request_id>/renders/set1-img1.png",
       "references": [],
       "depends_on": []

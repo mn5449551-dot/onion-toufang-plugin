@@ -237,8 +237,8 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("| 渠道/形式 | 单图 | 双图 | 三图 |", text)
         self.assertIn("应用商店 / 学习机 · 单图", text)
         self.assertIn("编号全局唯一", text)
-        self.assertIn("展示是 12 条", text)
-        self.assertIn("Base 写 14 条", text)
+        self.assertIn("展示是 8 条", text)
+        self.assertIn("Base 写 10 条", text)
         self.assertIn("拆成 2 条 records", text)
         self.assertIn("| 编号 | 主标题 | 副标题 |", text)
         self.assertIn("| 编号 | 短句1 | 短句2 | 短句3 |", text)
@@ -394,8 +394,8 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("selected-direction-all-channels-all-forms-shared-single", eval_names)
         expected = eval_names["selected-direction-all-channels-all-forms-shared-single"]["expected_output"]
         self.assertIn("应用商店 / 学习机 · 单图", expected)
-        self.assertIn("展示 12 条", expected)
-        self.assertIn("Base 写 14 条", expected)
+        self.assertIn("展示 8 条", expected)
+        self.assertIn("Base 写 10 条", expected)
 
     def test_copy_reference_examples_do_not_use_legacy_candidate_layout(self):
         channel = (PLUGIN_ROOT / "skills" / "onion-copy" / "references" / "渠道.md").read_text(encoding="utf-8")

@@ -5,11 +5,11 @@
 
 ---
 
-## ⚡ 前置 skill：`lark-base`
+## `lark-base` 的使用边界
 
-本 plugin 操作飞书 Base 时应先加载 / 使用 `lark-base` skill 来确认命令细节（`lark-cli base +record-batch-create` 等命令格式、字段类型映射、429 重试、写入 SOP 等）。
+核心流程**不需要加载** `lark-base` skill：所有 Base 读写都走 `shared/scripts/*` 共享脚本，命令拼装、dry-run、重试和 pending 兜底已固化在脚本代码里。
 
-不要依赖模型"自动加载"其他 skill。本文件只写"本 plugin 专属"的业务信息（4 张表是什么、字段叫什么、值范围）。lark-cli 命令的语法 / 错误处理 / 限流策略 → 以 lark-base skill 的 references 和 `lark-cli ... --help` 为准。
+只有人工排查或维护脚本、需要直接敲 `lark-cli` 时，才用 `lark-base` skill 和 `lark-cli ... --help` 校对命令细节（命令格式、字段类型映射、429 重试等）。本文件只写"本 plugin 专属"的业务信息（4 张表是什么、字段叫什么、值范围）。
 
 ---
 
@@ -106,8 +106,8 @@ Base URL: https://guanghe.feishu.cn/base/WIoGb0ksnaREvJsPtQCcW8Lsnfg
 |---|---|---|---|
 | `文案ID` | auto_number（C-XXX）| 自动 | 不传 |
 | `关联方向` | link → directions | ❌ 选填 | 多对一；用户手加场景或临时扩写可空。传 directions 表的 record_id 数组（如 `["recXXX"]`）|
-| `渠道` | select 单 | ✅ | 信息流 / 应用商店 / 学习机 / 百度 |
-| `图片形式` | select 单 | ✅ | 单图 / 双图 / 三图 |
+| `渠道` | select 单 | ✅ | 信息流 / 应用商店 / 学习机 / 百度（百度选项保留但暂不使用：文案口径未定，出图版位已禁用） |
+| `图片形式` | select 单 | ✅ | 单图 / 双图 / 三图（双/三图仅应用商店有版位可承接；信息流、学习机只支持单图） |
 | `文案类型` | select 单 | ❌ | 钩子 / 共情 / 数字 / 反差 / 故事 |
 | `主标题` | text | ❌（单图必填）| 单图用 |
 | `副标题` | text | ❌（单图必填）| 单图用 |
@@ -134,7 +134,7 @@ Base URL: https://guanghe.feishu.cn/base/WIoGb0ksnaREvJsPtQCcW8Lsnfg
 | `IP参考图引用` | text | ❌ | manifest 标准相对路径，如 `assets/ip-roles/doubao/doubao-junior-standard-001.png` |
 | `Logo` | select 单 | ❌ | 洋葱学园 / 洋葱学园+APP / 不用 |
 | `Logo参考图引用` | text | ❌ | manifest 标准相对路径，如 `assets/logos/onion-logo-standard-001.png` |
-| `CTA文字` | text | ❌ | 仅信息流有 |
+| `CTA文字` | text | ❌ | 业务上仅信息流使用 CTA；机制上按版位 `cta_policy` 收集（当前仅信息流版位为 optional，其余均 forbidden）|
 | `风格参考图引用` | text | ❌ | 内置：本地相对路径；多个用逗号 |
 | `风格参考图_用户上传` | attachment | ❌ | 用户当场上传的图，等维护人定期升级为内置 |
 | `图1` | attachment | ✅ | 第 1 张图，永远填；上传前默认压缩 |

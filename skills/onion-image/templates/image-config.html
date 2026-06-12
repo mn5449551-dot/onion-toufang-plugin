@@ -336,7 +336,7 @@
         <div class="hint">只填大的压缩包名称来源；系统会自动生成版位文件夹和图片名。输入“方向31.zip”也会按“方向31.zip”导出，不会重复追加后缀。</div>
       </div>
       <div class="field">
-        <label for="sets">套数</label>
+        <label for="sets">图片套数</label>
         <input id="sets" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
         <div class="hint">每条文案在每个版位生成几套。手动输入，最多 50 套；整批最多 100 图组，超过请拆批。</div>
       </div>
@@ -583,7 +583,7 @@
         ["模式", state.generationMode === "iterate" ? state.iterationMode : "explore"],
         ["字体参考", state.fontEnabled ? "启用：每张随机抽取" : "不启用"],
         ["屏幕界面", state.uiReferenceRequired ? "需要：保存后回到 Codex 上传截图" : "不展示可识别 UI"],
-        ["套数", `${state.sets} 套`],
+        ["图片套数", `${state.sets} 套`],
         ["预计图组数", slots.length ? `${COPY_COUNT} × ${slots.length} × ${state.sets || 0} = ${Number.isFinite(estimatedGroups) ? estimatedGroups : 0} / ${MAX_GROUP_COUNT}` : "-"],
       ];
       document.getElementById("summary").innerHTML = items.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("");

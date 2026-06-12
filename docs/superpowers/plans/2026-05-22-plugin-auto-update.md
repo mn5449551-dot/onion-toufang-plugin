@@ -1,5 +1,7 @@
 # Plugin Auto Update Implementation Plan
 
+> ✅ **已实现存档（2026-06-11 复核）**：本计划全部任务已落地于 plugin v1.1.2（`shared/scripts/plugin_update.py` + `setup_wizard.py` update-check/update + `tests/test_plugin_update.py`）。下方 checkbox 未勾选仅为历史遗留，不代表待办；请勿按本文件重新实施。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a cached, safe plugin update checker to the onion setup/readiness flow.

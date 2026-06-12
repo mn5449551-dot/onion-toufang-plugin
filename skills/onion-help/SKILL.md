@@ -119,7 +119,7 @@ python3 skills/onion-help/scripts/ensure_base_schema.py --apply
 directions    待用 8 / 已用 12 / 废弃 3 / 共 23 条
 copies        待用 12 / 已用 35 / 废弃 5 / 共 52 条
 image_groups  待用 5 / 已用 18 / 废弃 2 / 共 25 套
-feedbacks     ⚠️ 待审 3 / 已转规则 4 / 已驳回 1 / 已采纳 0
+feedbacks     ⚠️ 待审 3 / 已转规则 4 / 已采纳 0 / 已驳回 1
 pending       ⚠️ 未完成 2 / ambiguous 1 / retry>=3 0
 ```
 

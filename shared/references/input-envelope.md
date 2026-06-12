@@ -55,7 +55,7 @@
   },
   "visual": {
     "placements": [],
-    "sets": 1,
+    "sets": 2,
     "logo": "",
     "ip": "",
     "cta": "",
@@ -119,7 +119,7 @@
 必须结构化：
 
 - `D/C/G` ID、record_id、用户选择第几条。
-- 功能、卖点、适配阶段、渠道、版位、图片形式、套数。`business.stage` 仍要结构化，但不是 `onion-direction` 的用户必填项；缺阶段时由时间节点推断并写 `stage_source=time_inferred`，无法命中节点时写 `stage_source=default`。
+- 功能、卖点、适配阶段、渠道、版位、图片形式、图片套数（`visual.sets`，每条文案在每个版位生成几套）。`business.stage` 仍要结构化，但不是 `onion-direction` 的用户必填项；缺阶段时由时间节点推断并写 `stage_source=time_inferred`，无法命中节点时写 `stage_source=default`。
 - Logo、IP、CTA、字体参考开关、是否需要 APP 界面截图。
 - 上传图角色：`owned_old_ad`、`competitor_reference`、`layout_reference`、`style_reference`、`ip_reference`、`screen_ui_reference` 或 `unknown`。只要图片角色会影响路由、父图组、prompt 参考方式或是否要追问，就必须结构化。
 - request_id、output_dir、配置页结果、选择页结果、accepted_schemes、本地 `package_zip`。
