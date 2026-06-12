@@ -186,7 +186,7 @@ Base URL: https://guanghe.feishu.cn/base/WIoGb0ksnaREvJsPtQCcW8Lsnfg
 | `created_at / created_by / updated_at` | **绝对不传**，飞书原生维护，传了会失败 |
 | `link` 字段 | 传被关联记录的 `record_id` 数组（不是名字），如 `["recABC123"]` |
 | `select` 单选 | 传选项 name 字符串，如 `"信息流"` |
-| `select` 多选 | 传字符串数组，如 `["拍题秒出", "分步解析"]` |
+| `select` 多选 | 当前 4 张表**没有任何多选字段**，本行仅为将来新增时预留（传字符串数组）。特别注意：`卖点` 是 text 字段，永远传文本不传数组 |
 | 长字段名 | 包含双引号的字段名（如「1 能解决用户在"具体哪个场景里的哪个问题"」）调 JSON 时正确转义 |
 | `attachment` 字段 | 不能在 +record-batch-create 时直接传文件，要先建 record，再用 +record-upload-attachment 单独上传 |
 | 写入失败 3 次 | 整批操作写到 `~/.onion-ad/pending.jsonl`；只有用户明确要求重试，且确认不是 ambiguous 重复写入风险时，才运行 `retry_pending.py` |

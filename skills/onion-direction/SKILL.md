@@ -17,7 +17,7 @@ description: Use when 用户要为洋葱学园 APP 投放生成、扩充、编�
 
 方向生成属于 Creative Path。生成前按 `../../shared/references/creative-brief.md` 尽量建立 Full/Lite Creative Brief：先理解功能事实、目标用户、具体场景、用户阻碍/情绪、产品动作和可感知变化；缺关键功能事实时先查知识库或追问。不要把拍题精学的作业卡题场景套到私教班、同步课或其它功能。
 
-首启环境门禁：开始前先轻量检查 `~/.onion-ad/usage-state.json`、`~/.onion-ad/setup-status.json` 和 `~/.onion-ad/update-status.json`。缺本地使用记录或更新记录时先转 `onion-help` 运行 `setup_wizard.py ensure`；该命令使用 24 小时缓存检查插件版本，安全时才自动 fast-forward，设置 `ONION_PLUGIN_AUTO_UPDATE=0` 可关闭。纯候选生成可以先继续，但只要用户要写 Base、回查 D-XXX 或使用飞书表格，环境缺失、状态未知或版本检查提示风险时先环境检查。不要等到写入时才发现 lark-cli、Base token 或插件版本问题。
+首启环境门禁：开始前轻量检查 `~/.onion-ad/` 下 `usage-state.json`、`setup-status.json`、`update-status.json`；缺失、过期或版本异常时转 `onion-help` 运行 `setup_wizard.py ensure`（24 小时缓存的更新检查与关闭开关等细节见 onion-help）。纯候选生成可先继续；写 Base、回查 D-XXX 前必须就绪。
 
 ## 入口门禁
 
@@ -92,7 +92,7 @@ description: Use when 用户要为洋葱学园 APP 投放生成、扩充、编�
 - 不写洋葱 APP 没有的能力。
 - 广告主语默认是洋葱学园 APP 学生端，不把教师版、校园版、合作硬件或其他产品线写成主角。
 - 迭代过程不写 Base。用户明确确认“OK / 满意 / 就这样 / 存进去”时写入；用户说“选择第 N 条 / 方向一 / 就用这个”视为确认采纳该方向，先只把被选中的方向写入 Base。
-- 改方向默认创建新版，不覆盖原记录；用户明确说废弃原记录时，先确认后把原方向状态改为 `废弃`。用户明确要求“覆盖原记录”时，说明当前不支持覆盖字段，只能创建新版并保留历史。
+- 改方向默认创建新版，不覆盖原记录；废弃与“要求覆盖”的完整处理见上文版本策略。
 - 如果用户只是选择方向，没有明确说“出文案 / 继续生成文案”，入库后必须问下一步，不能直接结束也不能擅自出文案。
 - 如果用户选择方向并明确要求出文案，入库后进入 `onion-copy`；若缺渠道或图片形式，由 `onion-copy` 继续反问。
 - 如果用户一次选择多个方向并要求出文案，必须先问“每个方向各出一批，还是只基于其中一个方向出”，不要默认只用第一个。

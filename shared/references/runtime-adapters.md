@@ -54,10 +54,6 @@ Core wording:
 
 Do not make task tracking a hard dependency for any production skill.
 
-## Claude Code / Codex Adapter
-
-Claude Code / Codex-style runtimes may implement the abstractions above with their own choice prompts, background agents, task tools, or inline questions. Keep those concrete calls in runtime-specific operational notes, not in the production skill body.
-
 ## Non-Interactive Adapter
 
 In a plain chat or CLI runtime:

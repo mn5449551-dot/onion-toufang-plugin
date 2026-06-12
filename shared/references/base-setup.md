@@ -6,9 +6,8 @@ This plugin expects one shared Feishu Base as the central database. Core product
 
 Use the maintained shared Base:
 
-- Base URL: `https://guanghe.feishu.cn/base/WIoGb0ksnaREvJsPtQCcW8Lsnfg`
+- Base URL, token, and table ids: see `shared/base_schema.md` and `.env.template` (single sources; do not hardcode them elsewhere).
 - Tables: `directions`, `copies`, `image_groups`, `feedbacks`
-- Table ids are stored in `.env.template` and `shared/base_schema.md`.
 
 For team members:
 

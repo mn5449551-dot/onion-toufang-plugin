@@ -137,7 +137,7 @@ def check_image_api(values: dict[str, str]) -> dict[str, Any]:
         "status": "ok",
         "provider": "GPTImage2 Enterprise",
         "model": "gpt-image-2",
-        "local_concurrency": parse_positive_int(env_value("ONION_IMAGE_CONCURRENCY", values), 6),
+        "local_concurrency": parse_positive_int(env_value("ONION_IMAGE_CONCURRENCY", values), 12),
         "fallback_concurrency": parse_positive_int(env_value("ONION_IMAGE_FALLBACK_CONCURRENCY", values), 3),
         "documented_rpm_per_key": 3000,
         "documented_concurrent_requests_per_key": 100,

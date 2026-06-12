@@ -11,16 +11,20 @@ description: Use when 用户首次安装 onion 投放 plugin、切设备、核�
 
 开始诊断前，先按 `../../shared/references/input-envelope.md` 整理 Input Envelope。本 skill 只填写 `intent=diagnose`、诊断目标、检查面、阻塞/警告结果和下一步建议；不补方向、文案、图片视觉配置，也不把诊断请求改造成业务生产流程。
 
-## 启动加载
+## 按意图选读
 
-1. Read `~/.onion-ad/.env`，只看配置是否存在和关键变量是否可读。
-2. Read `../../shared/references/input-envelope.md`，确认诊断只填 help 负责的字段。
-3. Read `../../shared/base_schema.md`，拿 4 张表的 table_id 和状态字段。
-4. Read `../../shared/references/runtime-adapters.md`，确认当前运行时如何收集选择、反馈和异步任务。
-5. Read `../../shared/references/base-setup.md`，确认共享 Base / 空 Base 初始化策略。
-6. Read `references/环境自检清单.md`，按需执行环境、脚本、pending 队列检查。
-7. Read `references/状态摘要查询.md`，按需查询 4 张 Base 表状态。
-8. Read `../../shared/references/record-lookup.md`，确认 D/C/G ID 断点续跑入口。
+不要为了形式完整把下列文件全读一遍；先判断用户意图（见下文"判断用户目标"），只读当前检查面需要的：
+
+| 用户意图 | 只读 |
+|---|---|
+| 环境检查 / 能跑吗 / 核心 skill 报错 | `references/环境自检清单.md`（配合 `setup_wizard.py check`） |
+| 看进度 / Base 状态 / pending | `references/状态摘要查询.md` + `../../shared/base_schema.md`（只取 table_id 与状态字段） |
+| 初始化 Base / 空表 / 缺字段 | `../../shared/references/base-setup.md` + `../../shared/base_schema.md` |
+| 一键配置 / 首次使用 / 换电脑 | 直接跑 `setup_wizard.py ensure`，不需要先读任何文件 |
+| D/C/G ID 断点续跑咨询 | `../../shared/references/record-lookup.md` |
+| 需要交互 UI / 异步反馈约定 | `../../shared/references/runtime-adapters.md` |
+
+`~/.onion-ad/.env` 只在环境类意图时查看（只看存在性和关键变量可读性）。
 
 ## 一键配置
 

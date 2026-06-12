@@ -21,7 +21,7 @@ from typing import Any
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_RENDER_SCRIPT = SCRIPT_DIR / "render.py"
-DEFAULT_CONCURRENCY = 6
+DEFAULT_CONCURRENCY = 12
 DEFAULT_FALLBACK_CONCURRENCY = 3
 PROVIDER = "laozhang-gpt-image-2-enterprise"
 

@@ -785,18 +785,19 @@ class SkillContractTests(unittest.TestCase):
             self.assertIn("batch_render.py", text)
             self.assertIn("并发单位是 render job", text)
             self.assertIn("不是套数", text)
-            self.assertIn("默认 6", text)
-            self.assertIn("降到 3", text)
-            self.assertIn("100 concurrent requests", text)
+            self.assertIn("render-chain.md", text)
             self.assertIn("双图/三图链式依赖", text)
             self.assertIn("不要手工并发多个 render.py", text)
-        self.assertIn("ONION_IMAGE_CONCURRENCY=6", env_template)
+        self.assertIn("ONION_IMAGE_CONCURRENCY=12", env_template)
         self.assertIn("ONION_IMAGE_FALLBACK_CONCURRENCY=3", env_template)
         self.assertIn("GPTImage2 Enterprise", checklist)
         self.assertIn("3000 RPM", checklist)
         self.assertIn("100 concurrent requests", checklist)
         self.assertIn("batch_render.py", recipe)
         self.assertIn("ONION_IMAGE_CONCURRENCY", recipe)
+        self.assertIn("ONION_IMAGE_FALLBACK_CONCURRENCY", recipe)
+        self.assertIn("3000 RPM", recipe)
+        self.assertIn("100 concurrent requests", recipe)
 
 
 if __name__ == "__main__":

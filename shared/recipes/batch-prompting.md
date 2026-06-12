@@ -4,7 +4,7 @@ Use when a user asks for many image sets from the same copy, or asks to expand f
 
 ## Core Choice
 
-Default to agent-authored prompts in small batches. Do not ask an external planner to directly produce 50 final prompts unless the user explicitly prefers speed over prompt quality.
+Default to agent-authored prompts in small batches. Do not produce 50 rough final prompts in one pass; batch quality beats one-shot speed.
 
 | Requested sets | Prompt generation mode |
 |---|---|
@@ -87,12 +87,3 @@ When the user provides an existing image and asks for many variants:
 
 For each batch, write prompts as deltas from the original or from the new batch base image, not as unrelated full prompts.
 
-## External Planner Use
-
-External planner API is optional, not default. Use it when:
-
-- the user explicitly prefers speed;
-- the requested count is large and rough diversity is enough;
-- or the agent needs a first-pass idea pool before writing final prompts.
-
-Even then, treat planner output as `creativeBrief`, not final prompt. Final prompts still need batch-level quality checks before rendering.

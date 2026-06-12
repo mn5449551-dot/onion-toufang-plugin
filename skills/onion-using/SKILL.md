@@ -24,7 +24,7 @@ description: Use when 洋葱投放请求开始，或需要判断应直接进入�
 
 ## 使用规则
 
-- 首启环境门禁：任何 onion 请求开始时，先做轻量 readiness 判断。若 `~/.onion-ad/usage-state.json`、`~/.onion-ad/setup-status.json` 或 `~/.onion-ad/update-status.json` 不存在，先转 `onion-help` 运行 `setup_wizard.py ensure` 做安全本地配置和 24 小时缓存的插件更新检查；若平台/版本明显过期，或用户要写 Base / 生图 / 打开本地服务但环境未就绪，先环境检查。与各原子 skill 的门禁一致：纯方向/文案候选生成可以先继续，不被环境检查阻塞；写 Base、回查 ID、付费生图、打开本地服务前必须就绪。需要关闭自动更新时可设置 `ONION_PLUGIN_AUTO_UPDATE=0`。不要让用户跑到后面才发现缺 lark-cli、API key、Python 依赖或插件版本落后。
+- 首启环境门禁：任何 onion 请求开始时，轻量检查 `~/.onion-ad/` 下 `usage-state.json`、`setup-status.json`、`update-status.json`；缺失、过期或版本异常时转 `onion-help` 运行 `setup_wizard.py ensure`（24 小时缓存的更新检查与关闭开关等细节见 onion-help）。纯方向/文案候选生成不被阻塞；写 Base、回查 ID、付费生图、打开本地服务前必须就绪。
 - 先判断入口，不要把所有 onion 请求都塞进额外中间层。
 - 正确优先于少问。投放素材里的误判会污染 Base、浪费生图费用或生成不可用素材；只要影响入口、图片角色、写入对象、版位、父图组、是否使用竞品参考等关键判断，有一点不清楚就追问。
 - 进入任何 onion skill 前，都按 `../../shared/references/input-envelope.md` 整理 Input Envelope。

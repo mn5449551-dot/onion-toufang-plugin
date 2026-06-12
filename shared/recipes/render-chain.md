@@ -16,7 +16,7 @@ Required:
 
 Optional:
 
-- `--aspect-ratio`: legacy route for `1:1`, `3:2`, `16:9`, or `9:16`; use only when no placement is selected.
+- `--aspect-ratio`: maintainer debug-only legacy route (`1:1` / `3:2` / `16:9` / `9:16`). Normal flows always have a selected placement and must use `--size <render_size>`; never offer this flag as an option in production runs.
 - `--quality`: `low`, `medium`, or `high`; default `medium`.
 - `--reference <path>`: repeatable local reference image path.
 - `--input-json <path>`: JSON with `prompt`, `size` or `aspect_ratio`, `quality`, and `reference_images`. Prefer object entries with `label` / `role` / `asset_id` / `path` when more than one reference image is used.
@@ -29,7 +29,7 @@ Environment:
 - `LAOZHANG_API_KEY` is required only for paid rendering, not for `--validate-only`; before a paid render, check that it exists and is not a placeholder so the run does not fail after prompts are prepared.
 - `.env` is auto-loaded from `~/.onion-ad/.env`, cwd `.env`, and the skill directory.
 - LaoZhang `GPTImage2 Enterprise / gpt-image-2` is planned as `3000 RPM / API key` and `100 concurrent requests / API key`; this plugin uses local concurrency only, not a team-wide lock.
-- `ONION_IMAGE_CONCURRENCY` defaults to `6`.
+- `ONION_IMAGE_CONCURRENCY` defaults to `12`.
 - `ONION_IMAGE_FALLBACK_CONCURRENCY` defaults to `3`.
 
 ## Output
@@ -166,7 +166,7 @@ Dependency rules:
 
 Failure handling:
 
-- Default local concurrency is 6.
+- Default local concurrency is 12.
 - On `429 / rate limit / timeout / 5xx`, the current failed jobs retry once at fallback concurrency 3.
 - Failed sets stay in `failed_sets`; completed sets remain available for selection.
 - Existing non-empty output files are skipped on resume.

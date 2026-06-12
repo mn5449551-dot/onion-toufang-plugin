@@ -167,7 +167,7 @@ onion-toufang-plugin/
 │       └── references/
 └── shared/                                 ← 核心 skill 共用业务知识
     ├── base_schema.md                      ← 飞书 Base schema + 默认 token/TID
-    ├── feedback_observation.md             ← 反馈观察 + subagent 任务模板
+    ├── feedback_observation.md             ← 反馈观察与写入判断规则
     ├── references/input-envelope.md        ← 所有 skill 的统一输入/交接契约
     ├── knowledge/卖点库.md                  ← 洋葱 APP 卖点矩阵
     └── recipes/                            ← 出图 prompt 与 render 调度 recipe
