@@ -23,7 +23,7 @@ Creative Brief 使用 `shared/references/creative-brief.md` 的规则：先建�
 | Skill | 业务知识文件 | 用途 |
 |---|---|---|
 | `onion-direction` | `skills/onion-direction/references/字段与生成规则.md`、`经验参考.md`、`时间节点策略.md`、`shared/knowledge/卖点库.md` | 方向字段语义、切入角度、多样性、时间节点、痛点和卖点 |
-| `onion-copy` | `skills/onion-copy/references/字段定义-文案.md`、`渠道.md`、`规格.md`、`常见误区.md`、`shared/references/advertiser-subject.md`、`shared/knowledge/卖点库.md`、`shared/knowledge/功能-洋葱私教班.md` | 文案字段、文案类型、渠道语气、功能事实和课程卖点 |
+| `onion-copy` | `skills/onion-copy/references/字段定义-文案.md`、`学生视角与网感.md`、`渠道.md`、`规格.md`、`常见误区.md`、`shared/references/advertiser-subject.md`、`shared/knowledge/卖点库.md`、`shared/knowledge/功能-洋葱私教班.md` | 文案字段、学生表达资产、文案类型、渠道语气、功能事实和课程卖点 |
 | `onion-image` | `skills/onion-image/references/视觉元素规范.md`、`合规视觉雷区.md`、`渠道风格与复盘.md`、`shared/references/advertiser-subject.md` | 视觉合规、渠道风格、CTA/Logo/IP |
 | `onion-image-iterate` | `skills/onion-image-iterate/references/系列一致性.md`、`力度规则.md`、`血缘关系.md` | SAME/CHANGE、基准图继承、Logo/IP/CTA 一致性 |
 

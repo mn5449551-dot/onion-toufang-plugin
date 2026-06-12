@@ -348,14 +348,21 @@ class SkillContractTests(unittest.TestCase):
         channel = (PLUGIN_ROOT / "skills" / "onion-copy" / "references" / "渠道.md").read_text(encoding="utf-8")
         skill = (PLUGIN_ROOT / "skills" / "onion-copy" / "SKILL.md").read_text(encoding="utf-8")
 
-        for text in (spec, fields, channel):
-            self.assertIn("三图关系库", text)
-            self.assertIn("痛点 → 解法 → 奇效", text)
-            self.assertIn("旧方式 → 新方式 → 反差结果", text)
-            self.assertIn("递进排比", text)
-            self.assertIn("问题 → 问题 → 统一解法", text)
-            self.assertIn("期末冲刺课表", text)
-            self.assertIn("不是让你更努力，而是帮你学得更准", text)
+        # 规格.md 是三图关系库的唯一维护源
+        self.assertIn("三图关系库", spec)
+        self.assertIn("痛点 → 解法 → 奇效", spec)
+        self.assertIn("旧方式 → 新方式 → 反差结果", spec)
+        self.assertIn("递进排比", spec)
+        self.assertIn("问题 → 问题 → 统一解法", spec)
+        self.assertIn("期末冲刺课表", spec)
+        self.assertIn("不是让你更努力，而是帮你学得更准", spec)
+
+        # 字段定义和渠道只留指针，不得复制正文（防止三处口径漂移）
+        self.assertIn("双图/三图关系选择与正反例统一见 `规格.md`", fields)
+        self.assertIn("统一见 `规格.md` 双图/三图章节", channel)
+        for text in (fields, channel):
+            self.assertNotIn("期末冲刺课表", text)
+            self.assertNotIn("问题 → 问题 → 统一解法", text)
 
         self.assertIn("不要把 `痛点 → 解法 → 奇效` 当成唯一默认结构", skill)
 
