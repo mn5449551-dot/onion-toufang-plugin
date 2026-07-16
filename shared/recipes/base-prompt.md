@@ -41,6 +41,14 @@ Image 1 must define:
 
 When reference images are used, describe their roles explicitly in the same order passed to `render.py`: Logo, IP, font, style, then user references. Use `参考图1/参考图2/...` labels and manifest paths so the model can bind each file to the right role. Default font still uses an Onion font reference image; do not ask the user to choose it.
 
+When Logo is selected, keep this sentence verbatim inside the existing reference-map structure for image 1:
+
+> 左上角原样呈现参考图1的完整 Logo，图形、文字、颜色、比例、轮廓及角标均与原图一致，不得重绘、变形、简化或拆分；Logo直接融入画面原有背景，周围延续整体色调，不另加底板、色块、边框或弧形区域，仅调整整体大小和位置。
+
+完整 prompt 后文不得再追加 Logo 专属底板、局部底色、独立色块或弧形区域；Logo 周围的背景是 base 画面的自然延续，不是单独设计的品牌区块。
+
+Images 2/3 keep the existing branch contract: pass only the base PNG and inherit the Logo from image 1.
+
 ## Size Handling
 
 Prompt 正文不写具体像素、`target_size`、`render_size`、KB 上限或比例数字。这些是配置和工具参数，只从配置页的 `placements[]` 读取，并传给 `render.py --size`、导出和压缩脚本。

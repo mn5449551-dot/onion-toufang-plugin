@@ -37,6 +37,7 @@ SHARED_SCRIPTS = PLUGIN_ROOT / "shared" / "scripts"
 if str(SHARED_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SHARED_SCRIPTS))
 from build_selection_page import normalize_sets  # noqa: E402
+from logo_reference import canonical_logo_fields  # noqa: E402
 from runtime_paths import request_output_dir  # noqa: E402
 
 IMAGE_SETS_FILE = "image-sets.json"
@@ -722,13 +723,28 @@ def load_logo_options(manifest_path: Path = ASSET_MANIFEST) -> list[dict[str, An
         options.append(
             {
                 "value": asset.get("display_name"),
-                "label": asset.get("display_name"),
+                "label": asset.get("asset_name_zh") or asset.get("display_name"),
                 "asset_id": asset.get("asset_id"),
                 "path": asset.get("path"),
                 "thumb": f"/skill-assets/{asset.get('path')}" if asset.get("path") else "",
             }
         )
     return options
+
+
+def default_logo_index(context: dict[str, Any], options: list[dict[str, Any]]) -> int:
+    fields = flatten_context(context)
+    requested_asset_id = str(fields.get("logo_asset_id") or "").strip()
+    requested_path = str(fields.get("logo_reference_path") or "").strip()
+    requested_name = str(fields.get("logo") or fields.get("logo_name") or "").strip()
+    for index, option in enumerate(options):
+        if requested_asset_id and option.get("asset_id") == requested_asset_id:
+            return index
+        if not requested_asset_id and requested_path and option.get("path") == requested_path:
+            return index
+        if not requested_asset_id and not requested_path and requested_name and option.get("value") == requested_name:
+            return index
+    return 0
 
 
 def load_font_options(font_dir: Path = FONT_DIR) -> list[dict[str, str]]:
@@ -895,6 +911,7 @@ def build_config_payload(
         platform_rules=platform_rules,
         started_at=started_at,
     )
+    logo_options = load_logo_options()
     return {
         "request_id": request_id,
         "context": context,
@@ -908,7 +925,8 @@ def build_config_payload(
         "maxGroupCount": MAX_BATCH_GROUP_COUNT,
         "ipOptions": load_ip_options(),
         "fontOptions": load_font_options(),
-        "logoOptions": load_logo_options(),
+        "logoOptions": logo_options,
+        "defaultLogoIndex": default_logo_index(context, logo_options),
         "categories": categories or ["应用商店", "信息流", "学习机"],
         "diagnostics": diagnostics,
     }
@@ -1066,6 +1084,15 @@ def normalize_config_result(body: dict[str, Any], slot_map: dict[str, dict[str, 
             f"batch group count exceeds {MAX_BATCH_GROUP_COUNT}: "
             f"{result['copy_count']} copies × {len(placements)} placements × {result['sets']} sets = {result['estimated_group_count']}"
         )
+    logo_fields = canonical_logo_fields(body)
+    selected_logo = bool(logo_fields["logo_asset_id"])
+    forbidden = [slot["id"] for slot in placements if slot.get("logo_policy") == "forbidden"]
+    required = [slot["id"] for slot in placements if slot.get("logo_policy") == "required"]
+    if selected_logo and forbidden:
+        raise ValueError("以下版位禁止使用 Logo：" + ", ".join(forbidden))
+    if not selected_logo and required:
+        raise ValueError("以下版位必须选择 Logo：" + ", ".join(required))
+    result.update(logo_fields)
     result["ip_random"] = bool(body.get("ip_random") or body.get("ip") == "随机")
     result["font_reference_randomized"] = bool(body.get("font_reference_enabled", body.get("fontEnabled", True)))
     if generation_mode == "iterate":

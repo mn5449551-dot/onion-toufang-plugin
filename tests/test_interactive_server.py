@@ -75,6 +75,51 @@ class InteractiveServerTests(unittest.TestCase):
         self.assertTrue(payload["fontOptions"][0]["path"].startswith("assets/font-references/"))
         self.assertIn("百度", payload["categories"])
 
+    def test_logo_prefill_uses_exact_context_asset_and_never_defaults_to_first_logo(self):
+        empty_payload = self.server.build_config_payload("req-no-logo")
+        app_payload = self.server.build_config_payload(
+            "req-app-logo",
+            context={"logo_asset_id": "logo.onion.app.001"},
+        )
+
+        self.assertEqual(empty_payload["defaultLogoIndex"], 0)
+        selected = app_payload["logoOptions"][app_payload["defaultLogoIndex"]]
+        self.assertEqual(selected["asset_id"], "logo.onion.app.001")
+        self.assertEqual(selected["path"], "assets/logos/onion-logo-app-001.png")
+        self.assertIn("白字 APP 版", selected["label"])
+
+    def test_config_result_canonicalizes_logo_from_asset_id_and_rejects_mismatched_path(self):
+        slots = self.server.load_platform_slots()
+        by_id = {slot["id"]: slot for slot in slots}
+        slot_id = next(
+            slot["id"]
+            for slot in slots
+            if slot.get("enabled") and slot.get("logo_policy") != "forbidden"
+        )
+        base = {
+            "request_id": "req-logo",
+            "delivery_name": "Logo测试",
+            "sets": 2,
+            "placement_ids": [slot_id],
+            "logo": "洋葱学园+APP",
+            "logo_asset_id": "logo.onion.app.001",
+        }
+
+        result = self.server.normalize_config_result(base, by_id)
+
+        self.assertEqual(result["logo"], "洋葱学园+APP")
+        self.assertEqual(result["logo_asset_id"], "logo.onion.app.001")
+        self.assertEqual(result["logo_reference_path"], "assets/logos/onion-logo-app-001.png")
+
+        with self.assertRaisesRegex(ValueError, "Logo.*不匹配"):
+            self.server.normalize_config_result(
+                {
+                    **base,
+                    "logo_reference_path": "assets/logos/onion-logo-standard-001.png",
+                },
+                by_id,
+            )
+
     def test_config_html_contains_submit_endpoint_and_font_rule(self):
         html = self.server.build_config_html(self.server.build_config_payload("req-test"))
 

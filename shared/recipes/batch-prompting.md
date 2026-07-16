@@ -70,6 +70,7 @@ Before rendering a batch, check every set:
 - It is not a near-duplicate of earlier batches.
 - On-image text is exactly the copy fields for that image index.
 - IP/Logo/font/reference paths match the prompt wording.
+- Every single/base job that selected Logo uses the configured Logo as reference 1 and contains the exact Logo preservation sentence; branch jobs keep only the base PNG.
 - No-IP prompts have a deliberate style choice, and that style is not a third-party brand/style name.
 - Strong emotion, promise words, and device/brand risks are absent.
 - For double/triple sets, image 1 establishes the world and branches only change the current beat.
@@ -86,4 +87,3 @@ When the user provides an existing image and asks for many variants:
 - Do not turn expansion into a new unrelated concept unless the user asks for “换思路”.
 
 For each batch, write prompts as deltas from the original or from the new batch base image, not as unrelated full prompts.
-

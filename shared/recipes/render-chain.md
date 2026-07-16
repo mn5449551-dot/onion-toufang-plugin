@@ -17,7 +17,7 @@ Required:
 Optional:
 
 - `--aspect-ratio`: maintainer debug-only legacy route (`1:1` / `3:2` / `16:9` / `9:16`). Normal flows always have a selected placement and must use `--size <render_size>`; never offer this flag as an option in production runs.
-- `--quality`: `low`, `medium`, or `high`; default `medium`.
+- `--quality`: `low`, `medium`, or `high`; default `high`.
 - `--reference <path>`: repeatable local reference image path.
 - `--input-json <path>`: JSON with `prompt`, `size` or `aspect_ratio`, `quality`, and `reference_images`. Prefer object entries with `label` / `role` / `asset_id` / `path` when more than one reference image is used.
 - `--api-base`: defaults to `LAOZHANG_API_BASE` or LaoZhang default.
@@ -44,7 +44,7 @@ On success, stdout is JSON:
   "size": "1568x672",
   "aspect_ratio": "custom",
   "model": "gpt-image-2",
-  "quality": "medium",
+  "quality": "high",
   "endpoint": "/images/edits",
   "reference_images_resolved": []
 }
@@ -133,8 +133,11 @@ Use `batch_render.py` after prompts and references have passed validation:
 ```bash
 python3 skills/onion-image/scripts/batch_render.py \
   --manifest <output-dir>/image-render-manifest.json \
+  --config <output-dir>/image-config-result.json \
   --output <output-dir>/image-render-result.json
 ```
+
+For backward compatibility, if `--config` is omitted, `batch_render.py` automatically reads `image-config-result.json` beside the manifest.
 
 Manifest shape:
 
@@ -149,7 +152,7 @@ Manifest shape:
       "image_form": "single",
       "prompt": "完整生图提示词",
       "size": "1568x672",
-      "quality": "medium",
+      "quality": "high",
       "output": "/tmp/onion-ad/<request_id>/renders/set1-img1.png",
       "references": [],
       "depends_on": []
@@ -180,6 +183,8 @@ Before paid rendering, run the exact planned prompt/size/reference/output combin
 - output path is writable enough to resolve;
 - all reference paths exist;
 - asset references resolve from plugin root or skill root.
+
+`batch_render.py` also compares every single/base job with the saved configuration. If Logo is selected, reference 1 must be the same manifest `asset_id` and `path`, and the exact Logo preservation sentence must be present. Branch jobs remain unchanged and only use their base PNG by default. Structured references are passed to `render.py` through per-job `input-json`; they are not flattened to anonymous paths.
 
 ## Failure Handling
 

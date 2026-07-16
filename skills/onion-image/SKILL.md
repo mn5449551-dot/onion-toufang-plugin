@@ -132,6 +132,7 @@ description: Use when 用户要基于已确认文案、文案 ID、刚生成的�
 - 付费调用前必须先确认 `LAOZHANG_API_KEY` 存在且不是占位符，再用 `render.py --validate-only` 检查 prompt、`render_size`、输出路径和参考图路径。缺 key 时直接提示用户先跑 `onion-help` 环境检查或补 `~/.onion-ad/.env`，不要等到渲染阶段才失败。
 - 只渲染配置里 `enabled=true` 的版位。`directness=expand/composite` 或与本次图片形式不匹配而被配置页临时置灰的版位，不能绕过配置页直接生成。
 - 使用 Logo/IP/字体/风格参考图时，必须在 prompt 里写“参考图说明”，用 `参考图1/参考图2/...` 对应实际传入顺序；不能只写“参考上图”或“用豆包参考图”。
+- 选用 Logo 时，单图和双/三图的图1必须把配置页选中的 Logo 作为 `参考图1`，`asset_id` 和 `path` 必须与 `assets/asset-manifest.json` 同一条资产完全一致；prompt 在现有“参考图说明”结构内原样写：`左上角原样呈现参考图1的完整 Logo，图形、文字、颜色、比例、轮廓及角标均与原图一致，不得重绘、变形、简化或拆分；Logo直接融入画面原有背景，周围延续整体色调，不另加底板、色块、边框或弧形区域，仅调整整体大小和位置。` 完整 prompt 后文不得再追加 Logo 专属底板、局部底色、独立色块或弧形区域。双/三图的图2/3仍只传图1 PNG，不额外重复传 Logo。
 - 画面有中文文字时，prompt 必须明确字体策略。用户没指定字体时，选 1 张洋葱专属字体参考图并加入 `reference_images`；同一套双/三图用同一张字体参考，branch 图通过 base PNG 继承，不重复传。prompt 写“学习参考图的字体气质，使文字和画面融合，不要求完全一致，不复制参考图文字”。
 - 批量任务先完成当前批次 prompt 的质量检查，再进入付费渲染；不要为了并发出图而直接渲染未审的 50 条 prompt。
 - 批量渲染必须走 `scripts/batch_render.py`，不要手工并发多个 render.py。并发单位是 render job，不是套数；默认并发、降级重试与老张限流参数见 `../../shared/recipes/render-chain.md`，不做团队级全局锁。
@@ -195,7 +196,7 @@ python3 skills/onion-image/scripts/image_workflow.py status \
 脚本返回 `needs_feedback_write` 时，先写选择页里的 rejected 反馈，再重新检查状态；不要为了快而跳过反馈沉淀。
 脚本返回 `needs_attachment_resume` 时，说明 `image_groups` 记录已经创建但附件上传失败或中断；必须用原命令、原 `--write-result` 重跑 `write_image_group.py` 续传附件，脚本会复用 marker 里的 `record_id`。此时不要重新创建图组记录，也不要删除 marker。
 
-批量任务中，prompt authoring 和 render 分开：先按 `batch-prompting.md` 生成一批完整 prompt，再按 `render-chain.md` 组织 `image-render-manifest.json`，调用 `scripts/batch_render.py` 并发渲染该批。若同一文案选了多个版位，每个版位都要有自己的 prompt 和 `render_size`，不能把一个 prompt 机械套到所有尺寸。渲染可以并发，prompt 质量不能批量省略。
+批量任务中，prompt authoring 和 render 分开：先按 `batch-prompting.md` 生成一批完整 prompt，再按 `render-chain.md` 组织 `image-render-manifest.json`，调用 `scripts/batch_render.py --config <output-dir>/image-config-result.json` 并发渲染该批。若同一文案选了多个版位，每个版位都要有自己的 prompt 和 `render_size`，不能把一个 prompt 机械套到所有尺寸。渲染可以并发，prompt 质量不能批量省略。
 
 `batch_render.py` 的命令格式、manifest 结构与并发参数见 `../../shared/recipes/render-chain.md`。它复用 `render.py`、跳过已存在的非空 PNG、失败时保留成功 set，输出 `image-render-result.json`；只有完整 set 才进入后续选择页。
 

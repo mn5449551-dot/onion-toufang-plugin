@@ -29,9 +29,15 @@ import urllib.error
 import urllib.request
 import uuid
 
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+from logo_reference import logo_prompt_rule, validate_asset_reference_bindings, validate_logo_prompt_rule  # noqa: E402
+
 DEFAULT_API_BASE = "https://api.laozhang.ai/v1"
 MODEL = "gpt-image-2"
-QUALITY = "medium"
+QUALITY = "high"
 OUTPUT_FORMAT = "png"
 ENV_FILE = Path.home() / ".onion-ad" / ".env"
 QUALITY_CHOICES = {"low", "medium", "high"}
@@ -430,6 +436,8 @@ def main() -> int:
     try:
         reference_items = normalize_reference_items(list(payload.get("reference_images", [])))
         validate_reference_labels(prompt, reference_items)
+        validate_asset_reference_bindings(reference_items)
+        validate_logo_prompt_rule(prompt, reference_items)
     except ValueError as exc:
         log("ERROR", str(exc))
         return 1

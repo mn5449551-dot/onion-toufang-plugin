@@ -71,6 +71,12 @@ When two or more references are selected, start the prompt with a short referenc
 
 The `reference_images` array passed to `render.py` must use the same labels and order. Prefer manifest paths such as `assets/ip-roles/doubao/doubao-junior-standard-001.png`, not ad hoc or legacy shortcut paths.
 
+When Logo is selected, keep this sentence verbatim inside the existing reference-map structure; do not create a new prompt section:
+
+> 左上角原样呈现参考图1的完整 Logo，图形、文字、颜色、比例、轮廓及角标均与原图一致，不得重绘、变形、简化或拆分；Logo直接融入画面原有背景，周围延续整体色调，不另加底板、色块、边框或弧形区域，仅调整整体大小和位置。
+
+完整 prompt 后文不得再追加 Logo 专属底板、局部底色、独立色块或弧形区域；Logo 周围的背景是原画面的自然延续，不是单独设计的品牌区块。
+
 ## Positive Example
 
 This art-direction example is derived from the real "识别准确"拍题精学 case in `功能-拍题精学.md`: repeated failed recognition, then Onion gives a trustworthy result.

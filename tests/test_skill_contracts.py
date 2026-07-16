@@ -9,6 +9,38 @@ HARDCODED_PLUGIN_ROOT_FRAGMENT = "app_tixiao/skill_toufang/onion-toufang-plugin"
 
 
 class SkillContractTests(unittest.TestCase):
+    def test_onion_image_docs_define_high_as_the_default_quality(self):
+        render_chain = (PLUGIN_ROOT / "shared" / "recipes" / "render-chain.md").read_text(encoding="utf-8")
+        export_rules = (PLUGIN_ROOT / "skills" / "onion-image" / "references" / "压缩与导出.md").read_text(encoding="utf-8")
+        asset_rules = (PLUGIN_ROOT / "skills" / "onion-image" / "references" / "资产命名与参考图标注.md").read_text(encoding="utf-8")
+
+        self.assertIn("default `high`", render_chain)
+        self.assertNotIn("default `medium`", render_chain)
+        self.assertIn("omitted", render_chain)
+        self.assertIn("image-config-result.json", render_chain)
+        self.assertIn('| 生图 quality | `high` |', export_rules)
+        self.assertIn('"quality": "high"', asset_rules)
+
+    def test_onion_image_logo_rule_is_exact_and_branch_contract_is_unchanged(self):
+        rule = (
+            "左上角原样呈现参考图1的完整 Logo，图形、文字、颜色、比例、轮廓及角标均与原图一致，"
+            "不得重绘、变形、简化或拆分；Logo直接融入画面原有背景，周围延续整体色调，"
+            "不另加底板、色块、边框或弧形区域，仅调整整体大小和位置。"
+        )
+        skill = (PLUGIN_ROOT / "skills" / "onion-image" / "SKILL.md").read_text(encoding="utf-8")
+        single = (PLUGIN_ROOT / "shared" / "recipes" / "single-prompt.md").read_text(encoding="utf-8")
+        base = (PLUGIN_ROOT / "shared" / "recipes" / "base-prompt.md").read_text(encoding="utf-8")
+        branch = (PLUGIN_ROOT / "shared" / "recipes" / "branch-prompt.md").read_text(encoding="utf-8")
+
+        self.assertIn(rule, skill)
+        self.assertIn(rule, single)
+        self.assertIn(rule, base)
+        self.assertNotIn("Logo区域使用稳定的品牌蓝局部底色", skill)
+        self.assertNotIn("Logo区域使用稳定的品牌蓝局部底色", single)
+        self.assertNotIn("Logo区域使用稳定的品牌蓝局部底色", base)
+        self.assertIn("Default branch references:\n\n1. base PNG only.", branch)
+        self.assertIn("Do not pass Logo/IP/style/font again", branch)
+
     def iter_docs(self):
         for root in (PLUGIN_ROOT / "skills", PLUGIN_ROOT / "shared"):
             yield from root.rglob("*.md")

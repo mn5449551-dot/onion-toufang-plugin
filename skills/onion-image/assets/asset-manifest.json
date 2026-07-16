@@ -14,16 +14,16 @@
       "asset_id": "logo.onion.standard.001",
       "kind": "logo",
       "display_name": "洋葱学园",
+      "asset_name_zh": "洋葱学园（黑字标准版）",
       "path": "assets/logos/onion-logo-standard-001.png",
-      "legacy_path": "assets/logos/洋葱学园.png",
       "prompt_role": "品牌 Logo 参考图"
     },
     {
       "asset_id": "logo.onion.app.001",
       "kind": "logo",
       "display_name": "洋葱学园+APP",
+      "asset_name_zh": "洋葱学园+APP（白字 APP 版·高清深蓝参考底）",
       "path": "assets/logos/onion-logo-app-001.png",
-      "legacy_path": "assets/logos/洋葱学园+APP.png",
       "prompt_role": "品牌 Logo 和 APP 标识参考图"
     },
     {

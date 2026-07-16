@@ -24,6 +24,9 @@ DEFAULT_RENDER_SCRIPT = SCRIPT_DIR / "render.py"
 DEFAULT_CONCURRENCY = 12
 DEFAULT_FALLBACK_CONCURRENCY = 3
 PROVIDER = "laozhang-gpt-image-2-enterprise"
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+from logo_reference import validate_manifest_logo  # noqa: E402
 
 
 def clean_int(value: Any, default: int, minimum: int = 1) -> int:
@@ -81,32 +84,37 @@ def existing_output(job: dict[str, Any]) -> bool:
     return path.is_file() and path.stat().st_size > 0
 
 
-def reference_path(value: Any) -> str:
-    if isinstance(value, dict):
-        return str(value.get("path") or value.get("file") or value.get("src") or "")
-    return str(value or "")
+def render_input_path(job: dict[str, Any]) -> Path:
+    output = Path(str(job["output"])).expanduser()
+    return output.with_suffix(".render-input.json")
+
+
+def write_render_input(job: dict[str, Any]) -> Path:
+    payload = {
+        "prompt": str(job["prompt"]),
+        "quality": str(job.get("quality") or "high"),
+        "reference_images": job.get("references") or job.get("reference_images") or [],
+    }
+    if job.get("size"):
+        payload["size"] = str(job["size"])
+    elif job.get("aspect_ratio"):
+        payload["aspect_ratio"] = str(job["aspect_ratio"])
+    path = render_input_path(job)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return path
 
 
 def render_command(render_script: Path, job: dict[str, Any]) -> list[str]:
-    command = [
+    input_path = write_render_input(job)
+    return [
         sys.executable,
         str(render_script),
-        "--prompt",
-        str(job["prompt"]),
+        "--input-json",
+        str(input_path),
         "--output",
         str(job["output"]),
     ]
-    if job.get("size"):
-        command.extend(["--size", str(job["size"])])
-    elif job.get("aspect_ratio"):
-        command.extend(["--aspect-ratio", str(job["aspect_ratio"])])
-    if job.get("quality"):
-        command.extend(["--quality", str(job["quality"])])
-    for item in job.get("references") or job.get("reference_images") or []:
-        path = reference_path(item).strip()
-        if path:
-            command.extend(["--reference", path])
-    return command
 
 
 def is_retryable_failure(returncode: int, stdout: str, stderr: str) -> bool:
@@ -258,6 +266,13 @@ def execute_manifest(manifest: dict[str, Any], render_script: Path, concurrency:
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Batch render onion image jobs with bounded concurrency.")
     parser.add_argument("--manifest", required=True, help="JSON manifest with request_id and jobs.")
+    parser.add_argument(
+        "--config",
+        help=(
+            "Saved image-config-result.json for Logo and placement validation; "
+            "defaults to image-config-result.json beside the manifest."
+        ),
+    )
     parser.add_argument("--output", help="Defaults to image-render-result.json beside manifest.")
     parser.add_argument("--render-script", default=str(DEFAULT_RENDER_SCRIPT), help=argparse.SUPPRESS)
     parser.add_argument("--concurrency", type=int)
@@ -270,6 +285,20 @@ def main(argv: list[str] | None = None) -> int:
     try:
         manifest_path = Path(args.manifest).expanduser().resolve()
         manifest = load_manifest(manifest_path)
+        config_path = (
+            Path(args.config).expanduser().resolve()
+            if args.config
+            else manifest_path.parent / "image-config-result.json"
+        )
+        if not config_path.is_file():
+            raise ValueError(
+                f"config file not found: {config_path}. Pass --config or place "
+                "image-config-result.json beside the manifest."
+            )
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        if not isinstance(config, dict):
+            raise ValueError("config must be a JSON object")
+        validate_manifest_logo(manifest, config)
         concurrency = local_concurrency(manifest, args.concurrency, "ONION_IMAGE_CONCURRENCY", DEFAULT_CONCURRENCY)
         fallback = local_concurrency(manifest, args.fallback_concurrency, "ONION_IMAGE_FALLBACK_CONCURRENCY", DEFAULT_FALLBACK_CONCURRENCY)
         result_path = Path(args.output).expanduser().resolve() if args.output else manifest_path.parent / "image-render-result.json"

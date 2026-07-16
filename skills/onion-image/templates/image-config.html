@@ -404,7 +404,9 @@
       selectedSlotIds: [],
       deliveryName: DATA.deliveryName || DATA.context?.delivery_name || DATA.context?.方向名 || "",
       sets: 2,
-      logoIndex: Math.min(1, Math.max(DATA.logoOptions.length - 1, 0)),
+      logoIndex: Number.isInteger(DATA.defaultLogoIndex)
+        ? Math.min(Math.max(DATA.defaultLogoIndex, 0), Math.max(DATA.logoOptions.length - 1, 0))
+        : 0,
       ipIndex: 0,
       fontEnabled: true,
       uiReferenceRequired: false,
