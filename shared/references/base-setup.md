@@ -14,7 +14,7 @@ For team members:
 1. Run `lark-cli auth login` with their own Feishu account.
 2. Make sure the account is an editable collaborator on the Base.
 3. Copy `.env.template` to `~/.onion-ad/.env`.
-4. Fill only `LAOZHANG_API_KEY` unless the maintainer changed the Base.
+4. Fill only `KIE_API_KEY` unless the maintainer changed the Base.
 
 This mode preserves `创建人` correctly because all writes use `--as user`.
 

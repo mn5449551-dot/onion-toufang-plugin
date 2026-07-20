@@ -1,6 +1,6 @@
-import base64
 import hashlib
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -8,6 +8,9 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
+
+from PIL import Image
 
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[1]
@@ -31,20 +34,20 @@ class RenderTests(unittest.TestCase):
             env_path.write_text(
                 "\n".join(
                     [
-                        "LAOZHANG_API_KEY=sk-你的企业级令牌",
-                        "LAOZHANG_API_BASE=https://example.test/v1",
+                        "KIE_API_KEY=你的KIE密钥",
+                        "KIE_BASE_URL=https://example.test",
                         "EXISTING_VALUE=from-file",
                     ]
                 ),
                 encoding="utf-8",
             )
             old = os.environ.get("EXISTING_VALUE")
-            old_key = os.environ.pop("LAOZHANG_API_KEY", None)
+            old_key = os.environ.pop("KIE_API_KEY", None)
             os.environ["EXISTING_VALUE"] = "from-env"
             try:
                 self.assertTrue(self.render.load_dotenv_if_exists(env_path))
-                self.assertNotIn("LAOZHANG_API_KEY", os.environ)
-                self.assertEqual(os.environ["LAOZHANG_API_BASE"], "https://example.test/v1")
+                self.assertNotIn("KIE_API_KEY", os.environ)
+                self.assertEqual(os.environ["KIE_BASE_URL"], "https://example.test")
                 self.assertEqual(os.environ["EXISTING_VALUE"], "from-env")
             finally:
                 if old is None:
@@ -52,8 +55,8 @@ class RenderTests(unittest.TestCase):
                 else:
                     os.environ["EXISTING_VALUE"] = old
                 if old_key is not None:
-                    os.environ["LAOZHANG_API_KEY"] = old_key
-                os.environ.pop("LAOZHANG_API_BASE", None)
+                    os.environ["KIE_API_KEY"] = old_key
+                os.environ.pop("KIE_BASE_URL", None)
 
     def test_resolves_plugin_asset_paths(self):
         script_dir = RENDER_PATH.parent
@@ -111,7 +114,7 @@ class RenderTests(unittest.TestCase):
 
     def test_input_json_labeled_references_validate_and_echo_labels(self):
         env = dict(os.environ)
-        env.pop("LAOZHANG_API_KEY", None)
+        env.pop("KIE_API_KEY", None)
         with tempfile.TemporaryDirectory() as tmp:
             input_json = Path(tmp) / "render-input.json"
             input_json.write_text(
@@ -252,18 +255,56 @@ class RenderTests(unittest.TestCase):
                 ],
             )
 
-    def test_save_image_from_response_accepts_data_uri_without_padding(self):
-        png_bytes = b"\x89PNG\r\n\x1a\nfake"
-        encoded = base64.b64encode(png_bytes).decode("ascii").rstrip("=")
-        body = {"data": [{"b64_json": "data:image/png;base64," + encoded}]}
+    def test_create_request_uses_kie_text_model_resolution_and_no_quality(self):
+        req = self.render.build_create_request(
+            "https://api.example",
+            "secret",
+            "test prompt",
+            "16:9",
+            "2K",
+        )
+        payload = json.loads(req.data)
+        self.assertEqual(req.full_url, "https://api.example/api/v1/jobs/createTask")
+        self.assertEqual(req.get_header("User-agent"), "onion-ad-plugin/1.1 (+https://kie.ai)")
+        self.assertEqual(req.get_header("Accept"), "application/json")
+        self.assertEqual(payload["model"], "gpt-image-2-text-to-image")
+        self.assertEqual(payload["input"]["resolution"], "2K")
+        self.assertNotIn("quality", payload["input"])
+
+    def test_create_request_uses_kie_edit_model_and_input_urls(self):
+        req = self.render.build_create_request(
+            "https://api.example",
+            "secret",
+            "test prompt",
+            "1:1",
+            "2K",
+            ["https://files.example/ref.png"],
+        )
+        payload = json.loads(req.data)
+        self.assertEqual(payload["model"], "gpt-image-2-image-to-image")
+        self.assertEqual(payload["input"]["input_urls"], ["https://files.example/ref.png"])
+
+    def test_upload_request_uses_separate_base64_endpoint(self):
         with tempfile.TemporaryDirectory() as tmp:
-            out = Path(tmp) / "out.png"
-            self.render.save_image_from_response(body, out)
-            self.assertEqual(out.read_bytes(), png_bytes)
+            ref = Path(tmp) / "ref.png"
+            ref.write_bytes(b"png")
+            req = self.render.build_upload_request("https://upload.example", "secret", ref)
+            payload = json.loads(req.data)
+        self.assertEqual(req.full_url, "https://upload.example/api/file-base64-upload")
+        self.assertTrue(payload["base64Data"].startswith("data:image/png;base64,"))
+
+    def test_reference_limit_is_validated_before_api_calls(self):
+        with self.assertRaisesRegex(ValueError, "at most 16"):
+            self.render.normalize_reference_items([f"ref-{index}.png" for index in range(17)])
+
+    def test_nearest_aspect_ratio_uses_symmetric_relative_error(self):
+        self.assertEqual(self.render.nearest_aspect_ratio(1568, 672), "21:9")
+        self.assertEqual(self.render.nearest_aspect_ratio(672, 1568), "1:2")
+        self.assertEqual(self.render.nearest_aspect_ratio(1280, 720), "16:9")
 
     def test_cli_validate_only_does_not_require_api_key(self):
         env = dict(os.environ)
-        env.pop("LAOZHANG_API_KEY", None)
+        env.pop("KIE_API_KEY", None)
         output = subprocess.run(
             [
                 sys.executable,
@@ -290,9 +331,9 @@ class RenderTests(unittest.TestCase):
         self.assertEqual(payload["aspect_ratio"], "3:2")
         self.assertEqual(payload["size_label"], "1536x1024")
 
-    def test_cli_validate_only_accepts_explicit_size_and_quality(self):
+    def test_cli_validate_only_maps_explicit_size_and_ignores_legacy_quality(self):
         env = dict(os.environ)
-        env.pop("LAOZHANG_API_KEY", None)
+        env.pop("KIE_API_KEY", None)
         output = subprocess.run(
             [
                 sys.executable,
@@ -318,12 +359,14 @@ class RenderTests(unittest.TestCase):
         self.assertTrue(payload["valid"])
         self.assertEqual(payload["size_label"], "1568x672")
         self.assertEqual(payload["size"], "1568x672")
-        self.assertEqual(payload["quality"], "low")
-        self.assertEqual(payload["aspect_ratio"], "custom")
+        self.assertEqual(payload["resolution"], "2K")
+        self.assertEqual(payload["aspect_ratio"], "21:9")
+        self.assertNotIn("quality", payload)
+        self.assertIn("deprecated and ignored", output.stderr)
 
-    def test_cli_defaults_to_high_quality(self):
+    def test_cli_defaults_to_2k_resolution(self):
         env = dict(os.environ)
-        env.pop("LAOZHANG_API_KEY", None)
+        env.pop("KIE_API_KEY", None)
         output = subprocess.run(
             [
                 sys.executable,
@@ -333,7 +376,7 @@ class RenderTests(unittest.TestCase):
                 "--size",
                 "1024x1024",
                 "--output",
-                str(Path(tempfile.gettempdir()) / "onion-render-default-quality-test.png"),
+                str(Path(tempfile.gettempdir()) / "onion-render-default-resolution-test.png"),
                 "--validate-only",
             ],
             cwd=RENDER_PATH.parent.parent,
@@ -345,22 +388,99 @@ class RenderTests(unittest.TestCase):
         )
 
         payload = json.loads(output.stdout)
-        self.assertEqual(payload["quality"], "high")
+        self.assertEqual(payload["resolution"], "2K")
+        self.assertEqual(payload["provider"], "kie")
 
-    def test_edit_request_omits_unsupported_input_fidelity(self):
+    def test_poll_success_persists_result_url(self):
         with tempfile.TemporaryDirectory() as tmp:
-            ref = Path(tmp) / "ref.png"
-            ref.write_bytes(b"\x89PNG\r\n\x1a\nfake")
-            req = self.render.build_edit_request(
-                "https://example.test/v1",
-                "sk-test",
-                "参考图说明：参考图1 是 Logo。使用参考图1。",
-                [ref],
-                "1024x1024",
-            )
-            body = req.data.decode("utf-8", errors="replace")
+            state_path = Path(tmp) / "out.png.kie-task.json"
+            state = {"fingerprint": "abc"}
+            bodies = [
+                {"code": 200, "data": {"state": "generating"}},
+                {"code": 200, "data": {"state": "success", "resultJson": '{"resultUrls":["https://result.example/image"]}'}},
+            ]
+            with mock.patch.object(self.render, "request_json", side_effect=bodies), mock.patch.object(
+                self.render.time, "sleep"
+            ):
+                url, _ = self.render.poll_task(
+                    "https://api.example", "secret", "task-1", state_path, state, 1, 10
+                )
+            saved = json.loads(state_path.read_text(encoding="utf-8"))
+        self.assertEqual(url, "https://result.example/image")
+        self.assertEqual(saved["task_id"], "task-1")
+        self.assertEqual(saved["result_url"], url)
 
-        self.assertNotIn("input_fidelity", body)
+    def test_poll_failure_is_permanent_and_persisted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state_path = Path(tmp) / "out.png.kie-task.json"
+            body = {"code": 200, "data": {"state": "fail", "failCode": "422", "failMsg": "blocked"}}
+            with mock.patch.object(self.render, "request_json", return_value=body):
+                with self.assertRaisesRegex(self.render.KieError, "blocked") as caught:
+                    self.render.poll_task("https://api.example", "secret", "task-1", state_path, {}, 1, 10)
+            saved = json.loads(state_path.read_text(encoding="utf-8"))
+        self.assertEqual(caught.exception.exit_code, 4)
+        self.assertEqual(saved["fail_code"], "422")
+
+    def test_download_converts_jpeg_bytes_to_real_png_atomically(self):
+        source = io.BytesIO()
+        Image.new("RGB", (8, 6), (10, 20, 30)).save(source, format="JPEG")
+
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self):
+                return source.getvalue()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "out.png"
+            with mock.patch.object(self.render.urllib.request, "urlopen", return_value=Response()) as opened:
+                self.render.download_image("https://result.example/image", output)
+            request = opened.call_args.args[0]
+            with Image.open(output) as image:
+                self.assertEqual(image.format, "PNG")
+                self.assertEqual(image.size, (8, 6))
+        self.assertEqual(request.get_header("User-agent"), "onion-ad-plugin/1.1 (+https://kie.ai)")
+
+    def test_uncertain_submission_state_refuses_duplicate_task(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "out.png"
+            state_path = self.render.task_state_path(output)
+            fingerprint = self.render.request_fingerprint(
+                self.render.TEXT_MODEL, "test prompt", [], "1:1", "2K"
+            )
+            self.render.atomic_write_json(
+                state_path,
+                {
+                    "fingerprint": fingerprint,
+                    "model": self.render.TEXT_MODEL,
+                    "aspect_ratio": "1:1",
+                    "resolution": "2K",
+                    "status": "submit_uncertain",
+                },
+            )
+            env = {**os.environ, "KIE_API_KEY": "test-key"}
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(RENDER_PATH),
+                    "--prompt",
+                    "test prompt",
+                    "--size",
+                    "1024x1024",
+                    "--output",
+                    str(output),
+                ],
+                env=env,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+        self.assertEqual(result.returncode, 3)
+        self.assertIn("refusing to create a duplicate", result.stderr)
 
 
 if __name__ == "__main__":

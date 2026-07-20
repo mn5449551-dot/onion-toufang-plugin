@@ -35,6 +35,7 @@ parser.add_argument("--input-json")
 parser.add_argument("--prompt")
 parser.add_argument("--size")
 parser.add_argument("--quality")
+parser.add_argument("--resolution")
 parser.add_argument("--output", required=True)
 parser.add_argument("--reference", action="append", default=[])
 args, _ = parser.parse_known_args()
@@ -152,7 +153,7 @@ def os_environ_without_openai() -> dict[str, str]:
     import os
 
     env = os.environ.copy()
-    env.pop("LAOZHANG_API_KEY", None)
+    env.pop("KIE_API_KEY", None)
     return env
 
 
@@ -197,7 +198,7 @@ class BatchRenderTests(unittest.TestCase):
 
         self.assertEqual(payload["status"], "completed")
 
-    def test_render_input_defaults_to_high_quality(self):
+    def test_render_input_defaults_to_2k_resolution(self):
         batch = load_batch_module()
         with tempfile.TemporaryDirectory() as tmp:
             job = simple_job(Path(tmp), 1)
@@ -206,7 +207,18 @@ class BatchRenderTests(unittest.TestCase):
             input_path = batch.write_render_input(job)
             payload = json.loads(input_path.read_text(encoding="utf-8"))
 
-        self.assertEqual(payload["quality"], "high")
+        self.assertEqual(payload["resolution"], "2K")
+        self.assertNotIn("quality", payload)
+
+    def test_render_input_keeps_legacy_quality_but_uses_2k(self):
+        batch = load_batch_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            job = simple_job(Path(tmp), 1)
+            input_path = batch.write_render_input(job)
+            payload = json.loads(input_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(payload["resolution"], "2K")
+        self.assertEqual(payload["quality"], "low")
 
     def test_structured_logo_reference_is_preserved_in_render_input_json(self):
         with tempfile.TemporaryDirectory() as tmp:

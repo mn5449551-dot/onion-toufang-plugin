@@ -64,13 +64,13 @@ class BaseScriptTests(unittest.TestCase):
                     [
                         "ONION_BASE_APP_TOKEN=app_from_file",
                         "LARK_CLI_BIN=/tmp/fake-lark",
-                        "LAOZHANG_API_BASE=https://api.laozhang.ai/v1",
+                        "KIE_BASE_URL=https://api.kie.ai",
                     ]
                 ),
                 encoding="utf-8",
             )
-            old_values = {key: os.environ.get(key) for key in ("HOME", "ONION_BASE_APP_TOKEN", "LARK_CLI_BIN", "LAOZHANG_API_BASE")}
-            for key in ("ONION_BASE_APP_TOKEN", "LARK_CLI_BIN", "LAOZHANG_API_BASE"):
+            old_values = {key: os.environ.get(key) for key in ("HOME", "ONION_BASE_APP_TOKEN", "LARK_CLI_BIN", "KIE_BASE_URL")}
+            for key in ("ONION_BASE_APP_TOKEN", "LARK_CLI_BIN", "KIE_BASE_URL"):
                 os.environ.pop(key, None)
             os.environ["HOME"] = str(root)
             try:
@@ -78,7 +78,7 @@ class BaseScriptTests(unittest.TestCase):
 
                 self.assertEqual(os.environ["ONION_BASE_APP_TOKEN"], "app_from_file")
                 self.assertEqual(os.environ["LARK_CLI_BIN"], "/tmp/fake-lark")
-                self.assertNotIn("LAOZHANG_API_BASE", os.environ)
+                self.assertNotIn("KIE_BASE_URL", os.environ)
             finally:
                 for key, value in old_values.items():
                     if value is None:

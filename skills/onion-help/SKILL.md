@@ -59,7 +59,7 @@ python3 skills/onion-help/scripts/setup_wizard.py update
 |---|---|
 | "装好了没 / 能跑吗 / 环境检查 / 核心 skill 报错" | 先跑 `setup_wizard.py check`；必要时 bootstrap；无阻塞时再给 Base 摘要 |
 | "初始化 Base / Base 结构 / 空表 / 表不存在" | Base schema 检查；缺表缺字段时按 setup 文档给维护人创建方案，不自动创建 |
-| "看下进度 / Base 状态 / 还有啥没标注" | Base 摘要 + pending 队列；不跑老张 API 连通性，除非用户怀疑出图失败 |
+| "看下进度 / Base 状态 / 还有啥没标注" | Base 摘要 + pending 队列；不跑 KIE API 连通性，除非用户怀疑出图失败 |
 | "onion 状态 / 帮我看看 / 现在能干啥" | 环境自检 + Base 摘要 + 轻量下一步建议 |
 | "pending / 重试 / 写入失败" | 只看 pending 队列和共享脚本状态；不要自动 retry，除非用户明确要求 |
 

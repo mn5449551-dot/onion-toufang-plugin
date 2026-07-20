@@ -9,7 +9,7 @@
     {
       "id": "base-progress-only",
       "prompt": "看下现在 Base 里方向、文案、图组还有多少待用，还有没有待审反馈。",
-      "expected_output": "优先输出 Base 状态摘要和 pending 队列摘要，不跑老张 API 连通性；下一步建议使用“你可以”而不是强制流程。"
+      "expected_output": "优先输出 Base 状态摘要和 pending 队列摘要，不跑 KIE API 连通性；下一步建议使用“你可以”而不是强制流程。"
     },
     {
       "id": "pending-ambiguous",

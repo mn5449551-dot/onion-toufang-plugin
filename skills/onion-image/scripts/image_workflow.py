@@ -64,7 +64,7 @@ def load_runtime_env(output_dir: Path) -> None:
 
 
 def api_key_ready() -> bool:
-    value = str(os.environ.get("LAOZHANG_API_KEY") or "").strip()
+    value = str(os.environ.get("KIE_API_KEY") or "").strip()
     if not value:
         return False
     lowered = value.lower()
@@ -306,7 +306,7 @@ def build_status(request_id: str, output_dir: Path) -> dict[str, Any]:
             return {
                 **base,
                 "stage": "needs_api_key",
-                "next_action": "LAOZHANG_API_KEY 缺失或仍是占位符。先运行 onion-help 环境检查，或补 ~/.onion-ad/.env 后再渲染。",
+                "next_action": "KIE_API_KEY 缺失或仍是占位符。先运行 onion-help 环境检查，或补 ~/.onion-ad/.env 后再渲染。",
             }
         return {
             **base,

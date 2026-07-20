@@ -11,26 +11,29 @@ Do not hand-roll concurrent shell loops in the agent. 并发单位是 render job
 Required:
 
 - `--prompt`: complete image prompt.
-- `--size`: explicit gpt-image-2 size from the selected placement's `render_size`, such as `1568x672`.
+- `--size`: selected placement's `render_size`, such as `1568x672`; the renderer maps it to the nearest KIE-native aspect ratio.
 - `--output`: absolute or cwd-relative PNG path.
 
 Optional:
 
-- `--aspect-ratio`: maintainer debug-only legacy route (`1:1` / `3:2` / `16:9` / `9:16`). Normal flows always have a selected placement and must use `--size <render_size>`; never offer this flag as an option in production runs.
-- `--quality`: `low`, `medium`, or `high`; default `high`.
+- `--aspect-ratio`: maintainer debug-only KIE route. Normal flows always have a selected placement and use `--size <render_size>`.
+- `--resolution`: `1K`, `2K`, or `4K`; production default `2K`.
+- `--quality`: hidden legacy compatibility input. Accepted but ignored and never sent to KIE.
 - `--reference <path>`: repeatable local reference image path.
-- `--input-json <path>`: JSON with `prompt`, `size` or `aspect_ratio`, `quality`, and `reference_images`. Prefer object entries with `label` / `role` / `asset_id` / `path` when more than one reference image is used.
-- `--api-base`: defaults to `LAOZHANG_API_BASE` or LaoZhang default.
+- `--input-json <path>`: JSON with `prompt`, `size` or `aspect_ratio`, `resolution`, and `reference_images`. Prefer object entries with `label` / `role` / `asset_id` / `path` when more than one reference image is used.
+- `--api-base`: defaults to `KIE_BASE_URL` or `https://api.kie.ai`.
+- `--upload-base`: defaults to `KIE_UPLOAD_BASE_URL` or `https://kieai.redpandaai.co`.
 - `--retries`: default 3.
+- `--poll-timeout`: default 900 seconds. A timeout preserves the task ID for resume.
 - `--validate-only`: validate prompt, size, output, and reference paths without paid API call.
 
 Environment:
 
-- `LAOZHANG_API_KEY` is required only for paid rendering, not for `--validate-only`; before a paid render, check that it exists and is not a placeholder so the run does not fail after prompts are prepared.
+- `KIE_API_KEY` is required only for paid rendering, not for `--validate-only`; before a paid render, check that it exists and is not a placeholder.
 - `.env` is auto-loaded from `~/.onion-ad/.env`, cwd `.env`, and the skill directory.
-- LaoZhang `GPTImage2 Enterprise / gpt-image-2` is planned as `3000 RPM / API key` and `100 concurrent requests / API key`; this plugin uses local concurrency only, not a team-wide lock.
-- `ONION_IMAGE_CONCURRENCY` defaults to `12`.
-- `ONION_IMAGE_FALLBACK_CONCURRENCY` defaults to `3`.
+- KIE creation and polling are asynchronous. The renderer writes `<output>.kie-task.json` and resumes the same paid task after interruption.
+- `ONION_IMAGE_CONCURRENCY` defaults to `3`.
+- `ONION_IMAGE_FALLBACK_CONCURRENCY` defaults to `1`.
 
 ## Output
 
@@ -42,10 +45,12 @@ On success, stdout is JSON:
   "filepath": "<output-dir>/set1_img1.png",
   "size_label": "1568x672",
   "size": "1568x672",
-  "aspect_ratio": "custom",
-  "model": "gpt-image-2",
-  "quality": "high",
-  "endpoint": "/images/edits",
+  "aspect_ratio": "21:9",
+  "provider": "kie",
+  "model": "gpt-image-2-image-to-image",
+  "resolution": "2K",
+  "endpoint": "/api/v1/jobs/createTask",
+  "task_id": "task_gptimage_xxx",
   "reference_images_resolved": []
 }
 ```
@@ -59,7 +64,7 @@ Use `filepath` as the source of truth for downstream chain steps.
 | 0 | Success or validate-only success | Continue |
 | 1 | Local validation error | Fix prompt, size, output path, or reference path |
 | 2 | Missing/invalid API key | Ask user to fix environment |
-| 3 | Network/API failure after retries | Retry later or queue task manually |
+| 3 | Network/API failure, poll timeout, insufficient credits, or uncertain submit | Resume the saved task; never create a duplicate after uncertain submit |
 | 4 | API rejection or moderation block | Rewrite prompt to safer language |
 | 130 | Interrupted | Stop cleanly |
 
@@ -152,7 +157,7 @@ Manifest shape:
       "image_form": "single",
       "prompt": "完整生图提示词",
       "size": "1568x672",
-      "quality": "high",
+      "resolution": "2K",
       "output": "/tmp/onion-ad/<request_id>/renders/set1-img1.png",
       "references": [],
       "depends_on": []
@@ -169,10 +174,11 @@ Dependency rules:
 
 Failure handling:
 
-- Default local concurrency is 12.
-- On `429 / rate limit / timeout / 5xx`, the current failed jobs retry once at fallback concurrency 3.
+- Default local concurrency is 3.
+- On `429 / rate limit / timeout / 5xx`, failed jobs retry once at fallback concurrency 1; existing task state is resumed rather than recreated.
 - Failed sets stay in `failed_sets`; completed sets remain available for selection.
 - Existing non-empty output files are skipped on resume.
+- If `<output>.kie-task.json` contains a matching task ID, `render.py` polls or downloads that task instead of creating a new paid task.
 
 ## Validation Before Paid Calls
 

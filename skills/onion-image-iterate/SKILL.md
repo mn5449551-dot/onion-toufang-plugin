@@ -100,7 +100,7 @@ description: Use when 用户已有图组或图片，想基于 G-XXX / 爆款图�
 - 用户确认采纳后才写 Base；上传新图组附件前默认压缩，版位有明确 KB 上限时按该上限压缩，否则默认 200KB；pending 或 rejected 不写图组。
 - 成图后仍必须进入选择页或等价标注流程；不能只在聊天里贴图后入库。必须读取 `image-selection-result.json`，只有其中的 `accepted_schemes` 能写入 `image_groups`，rejected 和 pending 不上传；对话只能用于确认用户已提交，不能替代选择页标注。
 - 标注页提交后，先复用 `../onion-image/scripts/write_selection_feedback.py` 把 rejected_schemes 里的固定规则反馈 / 主观感受反馈写入 `feedbacks` 表；两种反馈可以同时写；选择“跳过反馈”不写。反馈沉淀不改变采纳图写入条件。
-- 批量渲染必须走 `../onion-image/scripts/batch_render.py`，不要手工并发多个 render.py。并发单位是 render job，不是套数；默认并发、降级重试与老张限流参数见 `../../shared/recipes/render-chain.md`，不做团队级全局锁。
+- 批量渲染必须走 `../onion-image/scripts/batch_render.py`，不要手工并发多个 render.py。并发单位是 render job，不是套数；KIE 默认并发、降级重试与任务恢复规则见 `../../shared/recipes/render-chain.md`，不做团队级全局锁。
 - 双图/三图链式依赖不能被并发破坏：双图图2依赖同套图1；三图图2/图3都依赖同套图1，只有图1落盘后分支才可并发。
 - 写 Base 前先复用 `../onion-image/scripts/package_accepted_images.py` 打包采纳图；基于 G-XXX 的新图组必须传 `--parent-group-id` 写入 `父图组`，并把本地 zip 路径作为 `--package-zip` 传给写入脚本。
 - 写 Base 前必须先跑 `../onion-image/scripts/image_workflow.py status`；只有返回 `ready_to_write_base` 且 `can_write_base=true` 才能首次调用 `write_image_group.py`。如果返回 `needs_attachment_resume`，只能用同一个 `--write-result` 重跑 `write_image_group.py` 续传附件，不能重新创建图组。写入成功后再次检查应返回 `complete`，避免重复写入。

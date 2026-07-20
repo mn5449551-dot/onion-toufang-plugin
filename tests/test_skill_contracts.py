@@ -9,17 +9,16 @@ HARDCODED_PLUGIN_ROOT_FRAGMENT = "app_tixiao/skill_toufang/onion-toufang-plugin"
 
 
 class SkillContractTests(unittest.TestCase):
-    def test_onion_image_docs_define_high_as_the_default_quality(self):
+    def test_onion_image_docs_define_2k_as_the_default_resolution(self):
         render_chain = (PLUGIN_ROOT / "shared" / "recipes" / "render-chain.md").read_text(encoding="utf-8")
         export_rules = (PLUGIN_ROOT / "skills" / "onion-image" / "references" / "压缩与导出.md").read_text(encoding="utf-8")
         asset_rules = (PLUGIN_ROOT / "skills" / "onion-image" / "references" / "资产命名与参考图标注.md").read_text(encoding="utf-8")
 
-        self.assertIn("default `high`", render_chain)
-        self.assertNotIn("default `medium`", render_chain)
-        self.assertIn("omitted", render_chain)
+        self.assertIn("production default `2K`", render_chain)
+        self.assertIn("Accepted but ignored", render_chain)
         self.assertIn("image-config-result.json", render_chain)
-        self.assertIn('| 生图 quality | `high` |', export_rules)
-        self.assertIn('"quality": "high"', asset_rules)
+        self.assertIn('| 生图 resolution | `2K` |', export_rules)
+        self.assertIn('"resolution": "2K"', asset_rules)
 
     def test_onion_image_logo_rule_is_exact_and_branch_contract_is_unchanged(self):
         rule = (
@@ -492,7 +491,7 @@ class SkillContractTests(unittest.TestCase):
 
         self.assertIn("未指定 Logo、CTA 或 IP", text)
         self.assertIn("不要直接默认信息流竖版", text)
-        self.assertIn("确认 `LAOZHANG_API_KEY` 存在且不是占位符", text)
+        self.assertIn("确认 `KIE_API_KEY` 存在且不是占位符", text)
         self.assertIn("成图后必须进入 `templates/image-selection.html` 选择页", text)
         self.assertIn("先问目标版位", text)
         self.assertIn("目标尺寸、gpt 出图尺寸、KB 上限", text)
@@ -813,7 +812,7 @@ class SkillContractTests(unittest.TestCase):
             self.assertIn("24 小时", text, skill_name)
             self.assertIn("onion-help", text, skill_name)
 
-    def test_image_batch_render_and_laozhang_limits_are_documented(self):
+    def test_image_batch_render_and_kie_recovery_are_documented(self):
         image = (PLUGIN_ROOT / "skills" / "onion-image" / "SKILL.md").read_text(encoding="utf-8")
         iterate = (PLUGIN_ROOT / "skills" / "onion-image-iterate" / "SKILL.md").read_text(encoding="utf-8")
         env_template = (PLUGIN_ROOT / ".env.template").read_text(encoding="utf-8")
@@ -827,16 +826,15 @@ class SkillContractTests(unittest.TestCase):
             self.assertIn("render-chain.md", text)
             self.assertIn("双图/三图链式依赖", text)
             self.assertIn("不要手工并发多个 render.py", text)
-        self.assertIn("ONION_IMAGE_CONCURRENCY=12", env_template)
-        self.assertIn("ONION_IMAGE_FALLBACK_CONCURRENCY=3", env_template)
-        self.assertIn("GPTImage2 Enterprise", checklist)
-        self.assertIn("3000 RPM", checklist)
-        self.assertIn("100 concurrent requests", checklist)
+        self.assertIn("ONION_IMAGE_CONCURRENCY=3", env_template)
+        self.assertIn("ONION_IMAGE_FALLBACK_CONCURRENCY=1", env_template)
+        self.assertIn("KIE GPT Image 2", checklist)
+        self.assertIn("任务状态", checklist)
         self.assertIn("batch_render.py", recipe)
         self.assertIn("ONION_IMAGE_CONCURRENCY", recipe)
         self.assertIn("ONION_IMAGE_FALLBACK_CONCURRENCY", recipe)
-        self.assertIn("3000 RPM", recipe)
-        self.assertIn("100 concurrent requests", recipe)
+        self.assertIn("kie-task.json", recipe)
+        self.assertIn("resumes the same paid task", recipe)
 
 
 if __name__ == "__main__":

@@ -85,11 +85,11 @@ def is_placeholder(value: str) -> bool:
 def check_env(values: dict[str, str]) -> dict[str, Any]:
     if not ENV_FILE.is_file():
         return {"status": "missing", "path": str(ENV_FILE)}
-    image_key = env_value("LAOZHANG_API_KEY", values)
+    image_key = env_value("KIE_API_KEY", values)
     base_token = env_value("ONION_BASE_APP_TOKEN", values)
     missing = []
     if is_placeholder(image_key):
-        missing.append("LAOZHANG_API_KEY")
+        missing.append("KIE_API_KEY")
     if not base_token:
         missing.append("ONION_BASE_APP_TOKEN")
     return {
@@ -135,14 +135,14 @@ def parse_positive_int(value: str, default: int) -> int:
 def check_image_api(values: dict[str, str]) -> dict[str, Any]:
     return {
         "status": "ok",
-        "provider": "GPTImage2 Enterprise",
-        "model": "gpt-image-2",
-        "local_concurrency": parse_positive_int(env_value("ONION_IMAGE_CONCURRENCY", values), 12),
-        "fallback_concurrency": parse_positive_int(env_value("ONION_IMAGE_FALLBACK_CONCURRENCY", values), 3),
-        "documented_rpm_per_key": 3000,
-        "documented_concurrent_requests_per_key": 100,
+        "provider": "KIE GPT Image 2",
+        "text_model": "gpt-image-2-text-to-image",
+        "edit_model": "gpt-image-2-image-to-image",
+        "resolution": "2K",
+        "local_concurrency": parse_positive_int(env_value("ONION_IMAGE_CONCURRENCY", values), 3),
+        "fallback_concurrency": parse_positive_int(env_value("ONION_IMAGE_FALLBACK_CONCURRENCY", values), 1),
         "team_global_lock": False,
-        "rate_limit_behavior": "429/5xx/timeout degrade current batch to fallback concurrency and retry failed jobs once",
+        "rate_limit_behavior": "429/5xx/timeout resume existing KIE tasks at fallback concurrency",
     }
 
 
@@ -165,7 +165,7 @@ def check_scripts_compile() -> dict[str, Any]:
 def next_actions(checks: dict[str, Any], profile: dict[str, str]) -> list[str]:
     actions = []
     if checks["env_file"]["status"] == "missing":
-        actions.append("Run bootstrap to create ~/.onion-ad/.env, then fill LAOZHANG_API_KEY.")
+        actions.append("Run bootstrap to create ~/.onion-ad/.env, then fill KIE_API_KEY.")
     elif checks["env_file"]["status"] == "incomplete":
         actions.append("Open ~/.onion-ad/.env and fill missing or placeholder keys.")
     if checks["lark_cli"]["status"] == "missing":

@@ -47,8 +47,8 @@ class HelpSetupWizardTests(unittest.TestCase):
             self.assertIn(payload["platform"]["family"], {"mac", "windows", "linux", "other"})
             self.assertTrue(payload["first_use"])
             self.assertEqual(payload["usage_state"]["bootstrap_count"], 1)
-            self.assertNotIn("LAOZHANG_API_KEY=", result.stdout)
-            self.assertNotIn("sk-你的", result.stdout)
+            self.assertNotIn("KIE_API_KEY=", result.stdout)
+            self.assertNotIn("你的KIE密钥", result.stdout)
 
     def test_bootstrap_does_not_overwrite_existing_env(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -56,7 +56,7 @@ class HelpSetupWizardTests(unittest.TestCase):
             env_dir = home / ".onion-ad"
             env_dir.mkdir(parents=True)
             env_file = env_dir / ".env"
-            original = "LAOZHANG_API_KEY=local-secret-value\n"
+            original = "KIE_API_KEY=local-secret-value\n"
             env_file.write_text(original, encoding="utf-8")
 
             result = self.run_setup("bootstrap", home)
@@ -108,7 +108,7 @@ class HelpSetupWizardTests(unittest.TestCase):
             self.assertEqual(payload["operation"], "update")
             self.assertEqual(payload["checks"]["plugin_update"]["status"], "disabled")
 
-    def test_check_reports_laozhang_enterprise_concurrency_settings(self):
+    def test_check_reports_kie_models_resolution_and_concurrency_settings(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)
             result = self.run_setup(
@@ -123,11 +123,12 @@ class HelpSetupWizardTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             payload = json.loads(result.stdout)
             image_api = payload["checks"]["image_api"]
-            self.assertEqual(image_api["provider"], "GPTImage2 Enterprise")
+            self.assertEqual(image_api["provider"], "KIE GPT Image 2")
+            self.assertEqual(image_api["text_model"], "gpt-image-2-text-to-image")
+            self.assertEqual(image_api["edit_model"], "gpt-image-2-image-to-image")
+            self.assertEqual(image_api["resolution"], "2K")
             self.assertEqual(image_api["local_concurrency"], 6)
             self.assertEqual(image_api["fallback_concurrency"], 3)
-            self.assertEqual(image_api["documented_rpm_per_key"], 3000)
-            self.assertEqual(image_api["documented_concurrent_requests_per_key"], 100)
 
     def test_ensure_auto_bootstraps_first_use_and_records_state(self):
         with tempfile.TemporaryDirectory() as tmp:

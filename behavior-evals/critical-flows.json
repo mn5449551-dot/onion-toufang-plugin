@@ -65,7 +65,7 @@
     {
       "id": "missing-api-key-routes-help",
       "prompt": "帮我用 C-104 出 2 套图。",
-      "expected_behavior": "进入 onion-image 后，在付费调用前检查 LAOZHANG_API_KEY；缺失或占位时转 onion-help/环境配置提示，不进入 render 阶段。",
+      "expected_behavior": "进入 onion-image 后，在付费调用前检查 KIE_API_KEY；缺失或占位时转 onion-help/环境配置提示，不进入 render 阶段。",
       "must_not": ["不能等到付费渲染才报错", "不能假装 key 可用", "不能调用 render.py 正式生图"]
     }
   ]

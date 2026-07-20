@@ -290,21 +290,21 @@ class ImageWorkflowTests(unittest.TestCase):
             root = Path(tmp)
             (root / "image-config-result.json").write_text(json.dumps(VALID_CONFIG), encoding="utf-8")
             env = os.environ.copy()
-            env.pop("LAOZHANG_API_KEY", None)
+            env.pop("KIE_API_KEY", None)
             env["HOME"] = str(root)
 
             payload = run_workflow(root, env=env)
 
         self.assertEqual(payload["stage"], "needs_api_key")
         self.assertFalse(payload["can_render"])
-        self.assertIn("LAOZHANG_API_KEY", payload["next_action"])
+        self.assertIn("KIE_API_KEY", payload["next_action"])
 
     def test_ready_to_render_points_to_batch_render_manifest(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "image-config-result.json").write_text(json.dumps(VALID_CONFIG), encoding="utf-8")
             env = os.environ.copy()
-            env["LAOZHANG_API_KEY"] = "test-valid-key"
+            env["KIE_API_KEY"] = "test-valid-key"
 
             payload = run_workflow(root, env=env)
 
@@ -329,7 +329,7 @@ class ImageWorkflowTests(unittest.TestCase):
             root = Path(tmp)
             (root / "image-config-result.json").write_text(json.dumps({"request_id": "req-test"}), encoding="utf-8")
             env = os.environ.copy()
-            env["LAOZHANG_API_KEY"] = "test-valid-key"
+            env["KIE_API_KEY"] = "test-valid-key"
 
             payload = run_workflow(root, env=env)
 
@@ -353,7 +353,7 @@ class ImageWorkflowTests(unittest.TestCase):
                 encoding="utf-8",
             )
             env = os.environ.copy()
-            env["LAOZHANG_API_KEY"] = "test-valid-key"
+            env["KIE_API_KEY"] = "test-valid-key"
 
             payload = run_workflow(root, env=env)
 
@@ -377,7 +377,7 @@ class ImageWorkflowTests(unittest.TestCase):
                 encoding="utf-8",
             )
             env = os.environ.copy()
-            env["LAOZHANG_API_KEY"] = "test-valid-key"
+            env["KIE_API_KEY"] = "test-valid-key"
 
             payload = run_workflow(root, env=env)
 

@@ -9,10 +9,10 @@
 | Skill | 类型 | 干啥 | 触发举例 |
 |---|---|---|---|
 | `onion-using` | **使用协议** | 判断明确任务应直接进哪个原子 skill；入口歧义、选择第 N 条、D/C/G ID、上传图用途不明时在这里分诊；每个 skill 都要独立整理 Input Envelope | `我选第二条 / D-007 直接出图 / 上传这张图改文案` |
-| `onion-help` | **导航** | 环境自检（lark-cli/.env/Python/Pillow/老张 API/Base/Pending）+ Base 结构检查 + Base 状态摘要（4 表 status 计数 + feedbacks 待审）+ 轻量推荐下一步 | `环境检查 / 初始化 Base / 看下进度 / 配置好了吗` |
+| `onion-help` | **导航** | 环境自检（lark-cli/.env/Python/Pillow/KIE API/Base/Pending）+ Base 结构检查 + Base 状态摘要（4 表 status 计数 + feedbacks 待审）+ 轻量推荐下一步 | `环境检查 / 初始化 Base / 看下进度 / 配置好了吗` |
 | `onion-direction` | 核心 ① | 出/扩/改方向卡（投放素材的上游，也可基于 D-XXX 继续） | `拍题精学的开学季方向，3 条 / D-007 再扩 5 条` |
 | `onion-copy` | 核心 ② | 出/扩/改文案（基于方向、方向 ID、文案 ID 或临时样本）| `用 D-007 出信息流文案 3 套 / C-012 标题再扩 5 套` |
-| `onion-image` | 核心 ③ | 出图（基于 C-XXX 或临时文案调老张 API 批量生图 + 选图）| `用 C-104 出应用商店三图，2 套` |
+| `onion-image` | 核心 ③ | 出图（基于 C-XXX 或临时文案调 KIE GPT Image 2 批量生图 + 选图）| `用 C-104 出应用商店三图，2 套` |
 | `onion-image-iterate` | 核心 ④ | 扩/换/微调图（基于 G-XXX 或用户上传图迭代）| `G-005 量好，扩同类 3 套` |
 
 `onion-using` 是轻量使用协议：明确任务直接进入对应原子 skill；入口歧义、跨边界、D/C/G ID 续跑、上传图用途不明或“选择第 N 条”时由 `onion-using` 分诊。`D-XXX` 不能直接跳到图，必须先形成可用文案；`C-XXX` 才能进入新图；`G-XXX` 或旧广告图进入迭代；用户口头说“选 set1”不能入库，必须用选择页标注结果。
@@ -76,7 +76,7 @@ lark-cli auth login
 py -3 -m pip install Pillow
 ```
 
-然后编辑用户目录下的 `.onion-ad/.env`，填入 `LAOZHANG_API_KEY` 等本机密钥。Windows 路径通常是 `%USERPROFILE%\.onion-ad\.env`。**重启 Codex Desktop** 或打开新会话后，再说“帮我检查洋葱投放插件环境”。
+然后编辑用户目录下的 `.onion-ad/.env`，填入 `KIE_API_KEY` 等本机密钥。Windows 路径通常是 `%USERPROFILE%\.onion-ad\.env`。**重启 Codex Desktop** 或打开新会话后，再说“帮我检查洋葱投放插件环境”。
 
 ### Claude Code / 手动安装
 
@@ -115,7 +115,7 @@ AI: [触发 onion-direction skill，反问/出方向卡/迭代/写飞书 Base]
 AI: [触发 onion-copy skill，出 3 套文案 → 用户确认 → 写 Base 或进入出图]
 
 你: 用 C-104 出应用商店三图，2 套，豆包 IP
-AI: [触发 onion-image skill，本地配置页 → 调老张 API 出图 → 选择页标注 → 采纳图写 Base]
+AI: [触发 onion-image skill，本地配置页 → 调 KIE GPT Image 2 出图 → 选择页标注 → 采纳图写 Base]
 
 你: G-005 跑得好，扩同类 2 套，换上官 IP
 AI: [触发 onion-image-iterate skill，确认旧图和改动轴 → 生图 → 选择页标注 → 按 parent_group_id 标血缘入库]

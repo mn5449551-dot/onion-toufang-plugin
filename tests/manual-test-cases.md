@@ -15,7 +15,7 @@
 **期望行为**
 
 - 进入 `onion-help`。
-- 检查飞书 Base 配置、4 张表、pending 队列、`LAOZHANG_API_KEY`。
+- 检查飞书 Base 配置、4 张表、pending 队列、`KIE_API_KEY`。
 - 如果缺生图 key，明确说“不能付费生图”，但方向/文案/Base 查询仍可继续。
 
 **通过标准**

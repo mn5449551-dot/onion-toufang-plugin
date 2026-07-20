@@ -21,9 +21,9 @@ from typing import Any
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_RENDER_SCRIPT = SCRIPT_DIR / "render.py"
-DEFAULT_CONCURRENCY = 12
-DEFAULT_FALLBACK_CONCURRENCY = 3
-PROVIDER = "laozhang-gpt-image-2-enterprise"
+DEFAULT_CONCURRENCY = 3
+DEFAULT_FALLBACK_CONCURRENCY = 1
+PROVIDER = "kie-gpt-image-2"
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 from logo_reference import validate_manifest_logo  # noqa: E402
@@ -92,9 +92,11 @@ def render_input_path(job: dict[str, Any]) -> Path:
 def write_render_input(job: dict[str, Any]) -> Path:
     payload = {
         "prompt": str(job["prompt"]),
-        "quality": str(job.get("quality") or "high"),
+        "resolution": str(job.get("resolution") or "2K").upper(),
         "reference_images": job.get("references") or job.get("reference_images") or [],
     }
+    if job.get("quality"):
+        payload["quality"] = str(job["quality"])
     if job.get("size"):
         payload["size"] = str(job["size"])
     elif job.get("aspect_ratio"):

@@ -43,7 +43,7 @@ Base URL: https://guanghe.feishu.cn/base/WIoGb0ksnaREvJsPtQCcW8Lsnfg
 
 > ⚠️ **正式上线时切到生产 Base**：插件维护人建好生产 Base 后，把本文件和 `.env.template` 里的 Base Token + 4 个 table_id 改成生产值，git commit + push。团队成员 pull 后复制新版模板，或手动同步 `~/.onion-ad/.env`。
 >
-> 用户通常只需要手动填写 **`LAOZHANG_API_KEY`**；Base token/TID 使用模板默认值。
+> 用户通常只需要手动填写 **`KIE_API_KEY`**；Base token/TID 使用模板默认值。
 
 ---
 
@@ -205,7 +205,7 @@ Base URL: https://guanghe.feishu.cn/base/WIoGb0ksnaREvJsPtQCcW8Lsnfg
 - Base URL: `https://guanghe.feishu.cn/base/WIoGb0ksnaREvJsPtQCcW8Lsnfg`
 - Base token: `WIoGb0ksnaREvJsPtQCcW8Lsnfg`
 - 4 张表必须存在且名称为 `directions / copies / image_groups / feedbacks`。
-- `.env.template` 内置的是这套 Base 的 token 和 table_id；团队成员通常只需要填写 `LAOZHANG_API_KEY`，并确保自己的飞书账号是 Base 可编辑协作者。
+- `.env.template` 内置的是这套 Base 的 token 和 table_id；团队成员通常只需要填写 `KIE_API_KEY`，并确保自己的飞书账号是 Base 可编辑协作者。
 
 如果维护人给的是一个空 Base，而不是上面的共享 Base：
 

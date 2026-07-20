@@ -73,7 +73,7 @@ description: Use when 用户要基于已确认文案、文案 ID、刚生成的�
 |---|---|
 | `needs_config` | 启动 `interactive_server.py`，打开 `/image-config` |
 | `needs_ui_reference_upload` | 提醒用户回到 Codex 上传截图，或确认改成弱化/模糊屏幕 |
-| `needs_api_key` | 先跑 `onion-help` 或补 `LAOZHANG_API_KEY`，不能 render |
+| `needs_api_key` | 先跑 `onion-help` 或补 `KIE_API_KEY`，不能 render |
 | `invalid_config` / `invalid_artifacts` | 停止续跑，重新保存配置或确认 request_id/output_dir |
 | `ready_to_render` | 写 prompt，组织 `image-render-manifest.json`，先逐 job `render.py --validate-only`，再用 `batch_render.py` 并发渲染并 POST `/api/image-sets` |
 | `needs_selection` | 构建/打开 `image-selection.html`，让用户在页面标注提交 |
@@ -129,13 +129,13 @@ description: Use when 用户要基于已确认文案、文案 ID、刚生成的�
 - 不允许绕过配置页直接生图；不允许调用聊天内置 imagegen 或其它通用图片工具来替代本 skill 的 `render.py` 链路。没有本轮有效的 `image-config-result.json` 时，下一步只能是打开配置页或让用户补文案锚点。
 - 继续任何已有 request_id 前必须先运行 `scripts/image_workflow.py status --request-id <request_id> --output-dir <output_dir>`；不得凭聊天记忆跳过配置页、截图闸门、选择页、打包或 Base 写入前检查。
 - 屏幕内容闸门兜底：`image-config-result.json` 勾了 `screen_ui_reference_required=true` / `ui_reference_required=true` 但没有用户上传的截图，或 prompt 方案会出现可识别的洋葱 APP/学习界面屏幕内容而用户未勾选——两种情况的下一步都只能是提醒上传截图，或征得同意把屏幕内容弱化/模糊；不能进入 prompt、validate-only 或 render，不在无截图时编造拍题结果页、解析页、继续追问页或学习报告。
-- 付费调用前必须先确认 `LAOZHANG_API_KEY` 存在且不是占位符，再用 `render.py --validate-only` 检查 prompt、`render_size`、输出路径和参考图路径。缺 key 时直接提示用户先跑 `onion-help` 环境检查或补 `~/.onion-ad/.env`，不要等到渲染阶段才失败。
+- 付费调用前必须先确认 `KIE_API_KEY` 存在且不是占位符，再用 `render.py --validate-only` 检查 prompt、`render_size`、2K 比例映射、输出路径和参考图路径。缺 key 时直接提示用户先跑 `onion-help` 环境检查或补 `~/.onion-ad/.env`，不要等到渲染阶段才失败。
 - 只渲染配置里 `enabled=true` 的版位。`directness=expand/composite` 或与本次图片形式不匹配而被配置页临时置灰的版位，不能绕过配置页直接生成。
 - 使用 Logo/IP/字体/风格参考图时，必须在 prompt 里写“参考图说明”，用 `参考图1/参考图2/...` 对应实际传入顺序；不能只写“参考上图”或“用豆包参考图”。
 - 选用 Logo 时，单图和双/三图的图1必须把配置页选中的 Logo 作为 `参考图1`，`asset_id` 和 `path` 必须与 `assets/asset-manifest.json` 同一条资产完全一致；prompt 在现有“参考图说明”结构内原样写：`左上角原样呈现参考图1的完整 Logo，图形、文字、颜色、比例、轮廓及角标均与原图一致，不得重绘、变形、简化或拆分；Logo直接融入画面原有背景，周围延续整体色调，不另加底板、色块、边框或弧形区域，仅调整整体大小和位置。` 完整 prompt 后文不得再追加 Logo 专属底板、局部底色、独立色块或弧形区域。双/三图的图2/3仍只传图1 PNG，不额外重复传 Logo。
 - 画面有中文文字时，prompt 必须明确字体策略。用户没指定字体时，选 1 张洋葱专属字体参考图并加入 `reference_images`；同一套双/三图用同一张字体参考，branch 图通过 base PNG 继承，不重复传。prompt 写“学习参考图的字体气质，使文字和画面融合，不要求完全一致，不复制参考图文字”。
 - 批量任务先完成当前批次 prompt 的质量检查，再进入付费渲染；不要为了并发出图而直接渲染未审的 50 条 prompt。
-- 批量渲染必须走 `scripts/batch_render.py`，不要手工并发多个 render.py。并发单位是 render job，不是套数；默认并发、降级重试与老张限流参数见 `../../shared/recipes/render-chain.md`，不做团队级全局锁。
+- 批量渲染必须走 `scripts/batch_render.py`，不要手工并发多个 render.py。并发单位是 render job，不是套数；KIE 默认并发、降级重试与任务恢复规则见 `../../shared/recipes/render-chain.md`，不做团队级全局锁。
 - 双图/三图链式依赖不能被并发破坏，必须真实链式：图2/图3 都依赖同套图1，只有图1 PNG 落盘后分支才可并发；branch 参考图默认只传图1 PNG，不重复传 Logo/IP/风格/字体资产。
 - 强情绪词、提分承诺、保过、100%、唯一、第一等风险词要避开。
 - 不要让手机设备出现明显违规外观或虚构平台 UI。
