@@ -220,6 +220,36 @@ class BatchRenderTests(unittest.TestCase):
         self.assertEqual(payload["resolution"], "2K")
         self.assertEqual(payload["quality"], "low")
 
+    def test_render_input_rejects_every_non_2k_resolution(self):
+        batch = load_batch_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            for value in ("1K", "4K"):
+                with self.subTest(value=value):
+                    job = simple_job(Path(tmp), 1, resolution=value)
+                    with self.assertRaisesRegex(ValueError, "resolution must be 2K"):
+                        batch.write_render_input(job)
+
+    def test_manifest_rejects_non_2k_before_any_render_job_starts(self):
+        batch = load_batch_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest_path = root / "manifest.json"
+            manifest_path.write_text(
+                json.dumps(
+                    {
+                        "request_id": "req-non-2k",
+                        "jobs": [simple_job(root, 1), simple_job(root, 2, resolution="4K")],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "set2-img1: resolution must be 2K"):
+                batch.load_manifest(manifest_path)
+
+        self.assertFalse((root / "renders" / "set1-img1.png").exists())
+
     def test_structured_logo_reference_is_preserved_in_render_input_json(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

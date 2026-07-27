@@ -127,6 +127,7 @@ description: Use when 用户要基于已确认文案、文案 ID、刚生成的�
 ## 硬约束
 
 - 不允许绕过配置页直接生图；不允许调用聊天内置 imagegen 或其它通用图片工具来替代本 skill 的 `render.py` 链路。没有本轮有效的 `image-config-result.json` 时，下一步只能是打开配置页或让用户补文案锚点。
+- 所有 KIE 生图只能使用 `2K`。`render.py`、input JSON 和 `batch_render.py` manifest 省略 `resolution` 时固定补为 `2K`；显式传入 `1K`、`4K` 或任何非 `2K` 值必须停止并报错，不允许降档、升档或静默改写后继续付费生图。
 - 继续任何已有 request_id 前必须先运行 `scripts/image_workflow.py status --request-id <request_id> --output-dir <output_dir>`；不得凭聊天记忆跳过配置页、截图闸门、选择页、打包或 Base 写入前检查。
 - 屏幕内容闸门兜底：`image-config-result.json` 勾了 `screen_ui_reference_required=true` / `ui_reference_required=true` 但没有用户上传的截图，或 prompt 方案会出现可识别的洋葱 APP/学习界面屏幕内容而用户未勾选——两种情况的下一步都只能是提醒上传截图，或征得同意把屏幕内容弱化/模糊；不能进入 prompt、validate-only 或 render，不在无截图时编造拍题结果页、解析页、继续追问页或学习报告。
 - 付费调用前必须先确认 `KIE_API_KEY` 存在且不是占位符，再用 `render.py --validate-only` 检查 prompt、`render_size`、2K 比例映射、输出路径和参考图路径。缺 key 时直接提示用户先跑 `onion-help` 环境检查或补 `~/.onion-ad/.env`，不要等到渲染阶段才失败。

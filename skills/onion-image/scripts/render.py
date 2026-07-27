@@ -38,7 +38,7 @@ DEFAULT_UPLOAD_BASE = "https://kieai.redpandaai.co"
 TEXT_MODEL = "gpt-image-2-text-to-image"
 EDIT_MODEL = "gpt-image-2-image-to-image"
 RESOLUTION = "2K"
-RESOLUTION_CHOICES = {"1K", "2K", "4K"}
+RESOLUTION_CHOICES = {RESOLUTION}
 LEGACY_QUALITY_CHOICES = {"low", "medium", "high"}
 ENV_FILE = Path.home() / ".onion-ad" / ".env"
 SIZE_RE = re.compile(r"^([1-9]\d*)x([1-9]\d*)$")
@@ -197,8 +197,8 @@ def validate_size_label(size: str) -> str:
 
 def normalize_resolution(value: str | None) -> str:
     resolution = str(value or RESOLUTION).strip().upper()
-    if resolution not in RESOLUTION_CHOICES:
-        raise ValueError(f"resolution must be one of {', '.join(sorted(RESOLUTION_CHOICES))}")
+    if resolution != RESOLUTION:
+        raise ValueError("resolution must be 2K")
     return resolution
 
 

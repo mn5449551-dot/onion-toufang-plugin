@@ -24,6 +24,7 @@ DEFAULT_RENDER_SCRIPT = SCRIPT_DIR / "render.py"
 DEFAULT_CONCURRENCY = 3
 DEFAULT_FALLBACK_CONCURRENCY = 1
 PROVIDER = "kie-gpt-image-2"
+RESOLUTION = "2K"
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 from logo_reference import validate_manifest_logo  # noqa: E402
@@ -50,6 +51,13 @@ def local_concurrency(manifest: dict[str, Any], cli_value: int | None, env_name:
     return clean_int(os.environ.get(env_name), default)
 
 
+def normalize_resolution(value: Any) -> str:
+    resolution = str(value or RESOLUTION).strip().upper()
+    if resolution != RESOLUTION:
+        raise ValueError("resolution must be 2K")
+    return resolution
+
+
 def load_manifest(path: Path) -> dict[str, Any]:
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
@@ -73,6 +81,10 @@ def load_manifest(path: Path) -> dict[str, Any]:
             raise ValueError(f"{job_id} missing prompt")
         if not str(job.get("output") or "").strip():
             raise ValueError(f"{job_id} missing output")
+        try:
+            normalize_resolution(job.get("resolution"))
+        except ValueError as exc:
+            raise ValueError(f"{job_id}: {exc}") from exc
         for dep in job.get("depends_on") or []:
             if str(dep) not in seen and not any(str(other.get("job_id")) == str(dep) for other in jobs if isinstance(other, dict)):
                 raise ValueError(f"{job_id} depends on unknown job {dep}")
@@ -92,7 +104,7 @@ def render_input_path(job: dict[str, Any]) -> Path:
 def write_render_input(job: dict[str, Any]) -> Path:
     payload = {
         "prompt": str(job["prompt"]),
-        "resolution": str(job.get("resolution") or "2K").upper(),
+        "resolution": normalize_resolution(job.get("resolution")),
         "reference_images": job.get("references") or job.get("reference_images") or [],
     }
     if job.get("quality"):

@@ -17,7 +17,7 @@ Required:
 Optional:
 
 - `--aspect-ratio`: maintainer debug-only KIE route. Normal flows always have a selected placement and use `--size <render_size>`.
-- `--resolution`: `1K`, `2K`, or `4K`; production default `2K`.
+- `--resolution`: the only accepted value is `2K`; omitting it also resolves to `2K`. `1K`, `4K`, and every other value are validation errors.
 - `--quality`: hidden legacy compatibility input. Accepted but ignored and never sent to KIE.
 - `--reference <path>`: repeatable local reference image path.
 - `--input-json <path>`: JSON with `prompt`, `size` or `aspect_ratio`, `resolution`, and `reference_images`. Prefer object entries with `label` / `role` / `asset_id` / `path` when more than one reference image is used.
@@ -32,6 +32,7 @@ Environment:
 - `KIE_API_KEY` is required only for paid rendering, not for `--validate-only`; before a paid render, check that it exists and is not a placeholder.
 - `.env` is auto-loaded from `~/.onion-ad/.env`, cwd `.env`, and the skill directory.
 - KIE creation and polling are asynchronous. The renderer writes `<output>.kie-task.json` and resumes the same paid task after interruption.
+- Every single-job input and batch manifest is hard-locked to `resolution=2K`; a non-2K value must fail validation before any paid task starts.
 - `ONION_IMAGE_CONCURRENCY` defaults to `3`.
 - `ONION_IMAGE_FALLBACK_CONCURRENCY` defaults to `1`.
 

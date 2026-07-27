@@ -9,15 +9,20 @@ HARDCODED_PLUGIN_ROOT_FRAGMENT = "app_tixiao/skill_toufang/onion-toufang-plugin"
 
 
 class SkillContractTests(unittest.TestCase):
-    def test_onion_image_docs_define_2k_as_the_default_resolution(self):
+    def test_onion_image_docs_hard_lock_rendering_to_2k(self):
+        skill = (PLUGIN_ROOT / "skills" / "onion-image" / "SKILL.md").read_text(encoding="utf-8")
         render_chain = (PLUGIN_ROOT / "shared" / "recipes" / "render-chain.md").read_text(encoding="utf-8")
         export_rules = (PLUGIN_ROOT / "skills" / "onion-image" / "references" / "压缩与导出.md").read_text(encoding="utf-8")
         asset_rules = (PLUGIN_ROOT / "skills" / "onion-image" / "references" / "资产命名与参考图标注.md").read_text(encoding="utf-8")
 
-        self.assertIn("production default `2K`", render_chain)
+        self.assertIn("所有 KIE 生图只能使用 `2K`", skill)
+        self.assertIn("only accepted value is `2K`", render_chain)
+        self.assertNotIn("`1K`, `2K`, or `4K`", render_chain)
         self.assertIn("Accepted but ignored", render_chain)
         self.assertIn("image-config-result.json", render_chain)
         self.assertIn('| 生图 resolution | `2K` |', export_rules)
+        self.assertIn("不允许切换到 1K 或 4K", export_rules)
+        self.assertNotIn("resolution=4K", export_rules)
         self.assertIn('"resolution": "2K"', asset_rules)
 
     def test_onion_image_logo_rule_is_exact_and_branch_contract_is_unchanged(self):

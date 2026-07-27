@@ -391,6 +391,42 @@ class RenderTests(unittest.TestCase):
         self.assertEqual(payload["resolution"], "2K")
         self.assertEqual(payload["provider"], "kie")
 
+    def test_resolution_rejects_every_non_2k_value(self):
+        for value in ("1K", "4K"):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(ValueError, "resolution must be 2K"):
+                    self.render.normalize_resolution(value)
+
+    def test_cli_input_json_rejects_non_2k_before_api_key_check(self):
+        env = dict(os.environ)
+        env.pop("KIE_API_KEY", None)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            input_path = root / "input.json"
+            input_path.write_text(
+                json.dumps({"prompt": "测试 prompt", "size": "1024x1024", "resolution": "4K"}),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(RENDER_PATH),
+                    "--input-json",
+                    str(input_path),
+                    "--output",
+                    str(root / "out.png"),
+                ],
+                cwd=RENDER_PATH.parent.parent,
+                env=env,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("resolution must be 2K", result.stderr)
+        self.assertNotIn("KIE_API_KEY is missing", result.stderr)
+
     def test_poll_success_persists_result_url(self):
         with tempfile.TemporaryDirectory() as tmp:
             state_path = Path(tmp) / "out.png.kie-task.json"
