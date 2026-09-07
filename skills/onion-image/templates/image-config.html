@@ -500,7 +500,7 @@
         <button class="option ${state.selectedSlotIds.includes(slot.id) ? "active" : ""} ${slot.enabled === false ? "disabled" : ""}" onclick="toggleSlot('${slot.id}')" ${slot.enabled === false ? "disabled" : ""}>
           <strong>${slot.platform} · ${slot.name}</strong>
           <span>${slot.sub_channel || ""}</span>
-          <span>目标 ${slot.target_size || "-"} / gpt ${slot.render_size || "-"} / &lt;${slot.maxFileSizeKb || "-"}KB</span>
+          <span>目标 ${slot.target_size || "-"} / gpt ${slot.render_size || "-"} / ${slot.file_size_operator === "<=" ? "≤" : "&lt;"}${slot.maxFileSizeKb || "-"}KB</span>
           <span>${slot.imageForm} / ${slot.directness_label || slot.directness || ""}</span>
           ${slot.disabled_reason ? `<span>暂不可选：${slot.disabled_reason}</span>` : ""}
           <div class="badges">
@@ -579,7 +579,7 @@
         ["文案数", `${COPY_COUNT} 条`],
         ["版位", slots.length ? slots.map(slot => `${slot.platform} · ${slot.name}`).join("；") : "请先选择至少一个版位"],
         ["尺寸", slots.length ? slots.map(slot => `${slot.target_size} ← gpt ${slot.render_size}`).join("；") : "-"],
-        ["压缩", slots.length ? slots.map(slot => slot.maxFileSizeKb ? `<${slot.maxFileSizeKb}KB` : "默认 200KB").join("；") : "-"],
+        ["压缩", slots.length ? slots.map(slot => slot.maxFileSizeKb ? `${slot.file_size_operator === "<=" ? "≤" : "<"}${slot.maxFileSizeKb}KB` : "默认 200KB").join("；") : "-"],
         ["Logo", logo.label],
         ["IP", ip.random ? "随机：每张重新抽取" : ip.label],
         ["模式", state.generationMode === "iterate" ? state.iterationMode : "explore"],

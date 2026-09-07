@@ -337,6 +337,7 @@ def normalize_channel_placement(slot: dict[str, Any]) -> dict[str, Any]:
         "render_size": render_size,
         "maxFileSizeKb": max_kb,
         "max_file_size_kb": max_kb,
+        "file_size_operator": slot.get("file_size_operator") or "<",
         "format": slot.get("format") or "",
         "directness": slot.get("directness") or "unknown",
         "directness_label": slot.get("directness_label") or "",

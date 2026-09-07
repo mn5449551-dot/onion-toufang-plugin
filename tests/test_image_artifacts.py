@@ -1,12 +1,14 @@
 import json
 import importlib.util
 import os
+import random
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 import zipfile
 
 from PIL import Image
@@ -416,6 +418,82 @@ class ImageArtifactTests(unittest.TestCase):
             self.assertIn("120x80", result.stdout)
             with Image.open(output) as exported:
                 self.assertEqual(exported.size, (120, 80))
+
+    def test_fixed_size_compression_rejects_impossible_limit_without_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source, output = Path(tmp) / "noise.png", Path(tmp) / "output.jpg"
+            Image.frombytes("RGB", (256, 256), random.Random(7).randbytes(256 * 256 * 3)).save(source)
+            result = subprocess.run(
+                [sys.executable, str(COMPRESS_SCRIPT), str(source), str(output),
+                 "--target-kb", "1", "--target-width", "256", "--target-height", "256"],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("preserving 256x256", result.stderr)
+            self.assertFalse(output.exists())
+
+    def test_package_rejects_stale_cache_when_source_cannot_meet_fixed_limit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            Image.frombytes("RGB", (256, 256), random.Random(7).randbytes(256 * 256 * 3)).save(root / "noise.png")
+            (root / "image-config-result.json").write_text(json.dumps({
+                "delivery_name": "cache-check", "placements": [{
+                    "id": "slot", "category": "信息流", "platform": "喜马拉雅",
+                    "placement": "单图", "target_size": "256x256",
+                    "target_width": 256, "target_height": 256, "max_file_size_kb": 1,
+                }],
+            }))
+            selection = root / "image-selection-result.json"
+            selection.write_text(json.dumps({"accepted_schemes": [{
+                "set_id": "set1", "thumb": ["noise.png"], "placement_id": "slot",
+            }]}))
+            cache = root / "accepted-package-assets"
+            cache.mkdir()
+            Image.new("RGB", (10, 10)).save(cache / "set1-noise.256x256.compressed-1kb.jpg")
+            result = subprocess.run(
+                [sys.executable, str(PACKAGE_SCRIPT), "--selection-result", str(selection)],
+                capture_output=True, text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("preserving 256x256", result.stderr + result.stdout)
+            self.assertFalse((root / "cache-check.zip").exists())
+            self.assertFalse((root / "cache-check-manifest.json").exists())
+
+    def test_compression_requires_strictly_less_than_byte_limit(self):
+        spec = importlib.util.spec_from_file_location("compress_boundary", COMPRESS_SCRIPT)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as tmp:
+            source, output = Path(tmp) / "source.png", Path(tmp) / "output.jpg"
+            Image.new("RGB", (10, 10)).save(source)
+            sizes = iter([1024, 1023])
+            def save_at_boundary(image, buffer, *args, **kwargs):
+                buffer.write(b"x" * next(sizes))
+            with mock.patch.object(Image.Image, "save", save_at_boundary):
+                module.compress(str(source), str(output), 1, 10, 10)
+            self.assertEqual(output.stat().st_size, 1023)
+
+    def test_new_feed_sizes_export_exact_jpegs_below_limits(self):
+        rules = json.loads((PLUGIN_ROOT / "skills/onion-image/config/channel-placement-rules.json").read_text())
+        slots = [s for s in rules["placements"] if s["platform"] in ("微博粉丝通", "腾讯广点通", "喜马拉雅")]
+        self.assertEqual(len(slots), 8)
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "source.png"
+            Image.linear_gradient("L").resize((1280, 720)).convert("RGB").save(source)
+            for slot in slots:
+                with self.subTest(slot=slot["id"]):
+                    output = Path(tmp) / (slot["id"] + ".jpg")
+                    subprocess.run(
+                        [sys.executable, str(COMPRESS_SCRIPT), str(source), str(output),
+                         "--target-kb", str(slot["max_file_size_kb"]),
+                         "--target-width", str(slot["target_width"]),
+                         "--target-height", str(slot["target_height"])],
+                        capture_output=True, text=True, check=True,
+                    )
+                    with Image.open(output) as exported:
+                        self.assertEqual(exported.format, "JPEG")
+                        self.assertEqual(exported.size, (slot["target_width"], slot["target_height"]))
+                    self.assertLess(output.stat().st_size, slot["max_file_size_kb"] * 1024)
 
     def test_write_image_group_preserves_relationship_fields_over_metadata(self):
         module = load_write_image_group_module()

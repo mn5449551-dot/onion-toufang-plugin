@@ -12,20 +12,23 @@ image_compress.py - Pillow 压缩图片到目标 KB。
 
   1. 若传 target_width/target_height，先按 cover 居中裁切到目标尺寸
   2. 再转 JPG（去 alpha），初始 quality=85
-  3. 若 > target_kb，逐步降 quality 步长 5，直到达标 / quality 降到 60
-  4. 若 quality=60 还超 → 等比缩小 0.9 倍再试
-  5. 最多 10 轮
+  3. 若 >= target_kb，逐步降 quality 步长 5，直到达标 / quality 降到 60
+  4. 指定目标尺寸时保持像素不变，quality=60 仍超限则报错
+  5. 未指定尺寸时允许等比缩小 0.9 倍，最多 10 轮；仍超限则报错
+  6. 按 1KB = 1024 字节计算，严格小于上限；仅达标后原子写入输出
 
 # 退出码
 
   0: 成功
   1: 输入文件不存在 / 不可读
-  2: 压缩失败（最终仍超 target_kb 2x 以上）
+  2: 压缩失败（尺寸非法或最终仍超上限）
 """
 
 import argparse
+import io
 import os
 import sys
+import tempfile
 from typing import Optional
 
 try:
@@ -57,37 +60,44 @@ def compress(
     if not os.path.exists(input_path):
         raise FileNotFoundError(f"Input not found: {input_path}")
 
-    img = Image.open(input_path).convert("RGB")  # PNG → RGB（去 alpha）
-    if target_width and target_height:
+    if target_kb <= 0:
+        raise ValueError("target KB must be positive")
+    if (target_width is None) != (target_height is None):
+        raise ValueError("target width and height must be provided together")
+    fixed_size = target_width is not None
+    with Image.open(input_path) as source:
+        img = source.convert("RGB")
+    if fixed_size:
         img = resize_cover(img, target_width, target_height)
-    quality = 85
-    scale = 1.0
 
-    for round_no in range(1, 11):
-        # 缩放
-        if scale < 1.0:
-            new_size = (int(img.width * scale), int(img.height * scale))
-            scaled = img.resize(new_size, Image.LANCZOS)
-        else:
-            scaled = img
-
-        # 尝试不同 quality
-        while quality >= 60:
-            scaled.save(output_path, "JPEG", quality=quality, optimize=True)
-            size_kb = os.path.getsize(output_path) / 1024
-            if size_kb <= target_kb:
-                print(f"✅ {input_path} → {output_path} ({scaled.width}x{scaled.height}, {size_kb:.1f} KB, q={quality}, scale={scale:.2f})")
+    for round_no in range(1 if fixed_size else 10):
+        scale = 0.9 ** round_no
+        scaled = img if round_no == 0 else img.resize(
+            (max(1, int(img.width * scale)), max(1, int(img.height * scale))), Image.LANCZOS
+        )
+        for quality in range(85, 59, -5):
+            buffer = io.BytesIO()
+            scaled.save(buffer, "JPEG", quality=quality, optimize=True)
+            payload = buffer.getvalue()
+            if len(payload) < target_kb * 1024:
+                temp_path = None
+                try:
+                    with tempfile.NamedTemporaryFile(
+                        dir=os.path.dirname(os.path.abspath(output_path)), delete=False
+                    ) as temp:
+                        temp_path = temp.name
+                        temp.write(payload)
+                    os.replace(temp_path, output_path)
+                finally:
+                    if temp_path and os.path.exists(temp_path):
+                        os.unlink(temp_path)
+                print(f"✅ {input_path} → {output_path} ({scaled.width}x{scaled.height}, {len(payload) / 1024:.1f} KB, q={quality})")
                 return output_path
-            quality -= 5
 
-        # 还超 → 缩小
-        scale *= 0.9
-        quality = 85
-
-    # 10 轮还超 → 接受最终值
-    size_kb = os.path.getsize(output_path) / 1024
-    print(f"⚠️ {input_path} → {output_path} ({size_kb:.1f} KB, 最终仍超目标)")
-    return output_path
+    raise ValueError(
+        f"Cannot compress image below {target_kb} KB at quality >= 60"
+        + (f" while preserving {target_width}x{target_height}" if fixed_size else " after 10 rounds")
+    )
 
 
 def main():

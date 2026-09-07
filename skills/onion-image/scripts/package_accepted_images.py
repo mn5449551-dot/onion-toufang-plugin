@@ -517,8 +517,8 @@ def package_accepted_images(
                 for image_index, source in enumerate(packet["image_paths"], start=1):
                     if compress:
                         packaged = compressed_path_for(source, cache_dir, set_id, scheme_target_kb, target_width, target_height)
-                        if not packaged.exists():
-                            compress_image(source, packaged, scheme_target_kb, target_width, target_height)
+                        # Re-export so stale assets cannot bypass current size/byte checks.
+                        compress_image(source, packaged, scheme_target_kb, target_width, target_height)
                     else:
                         packaged = source
                     counters[archive_dir] += 1

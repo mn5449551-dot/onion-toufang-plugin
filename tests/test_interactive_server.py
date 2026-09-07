@@ -22,6 +22,26 @@ class InteractiveServerTests(unittest.TestCase):
     def setUp(self):
         self.server = load_server_module()
 
+    def test_feed_additions_are_selectable_single_images_with_source_limits(self):
+        slots = self.server.load_platform_slots()
+        expected = {
+            "微博粉丝通": ({"1280x720"}, 5120, "<="),
+            "网易": ({"1280x720"}, 500, "<"),
+            "腾讯广点通": ({"1280x720", "720x1280"}, 400, "<"),
+            "喜马拉雅": ({"1280x720", "720x1280", "1200x480", "1000x1000", "720x1559"}, 150, "<"),
+        }
+        self.assertEqual(len({s["id"] for s in slots}), len(slots))
+        for platform, (sizes, limit, operator) in expected.items():
+            selected = [s for s in slots if s["platform"] == platform and s["category"] == "信息流"]
+            self.assertEqual({s["target_size"] for s in selected}, sizes)
+            self.assertEqual(len(selected), len(sizes))
+            for slot in selected:
+                self.assertTrue(slot["enabled"])
+                self.assertEqual(slot["image_form"], "单图")
+                self.assertEqual(slot["image_count"], 1)
+                self.assertEqual(slot["maxFileSizeKb"], limit)
+                self.assertEqual(slot["file_size_operator"], operator)
+
     def test_loads_ai_ad_platform_slots_with_ratio_and_kb(self):
         with tempfile.TemporaryDirectory() as tmp:
             rules = Path(tmp) / "platform-rules.json"
